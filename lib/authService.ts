@@ -57,4 +57,31 @@ export const authService = {
       throw error.response?.data || error.message
     }
   },
+  updateProfile: async (profileData: any) => {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found.");
+    }
+
+    // نضيف _method=PUT لأنك بتستخدمي POST مع Laravel
+    const payload = { ...profileData, _method: "PUT" };
+
+    const response = await axios.post(`${API_URL}/profile`, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+    });
+
+    // حفظ التحديث في localStorage لو حبيتي
+    localStorage.setItem("cvmaster_profile", JSON.stringify(response.data.profile));
+
+    return response.data.profile;
+  } catch (error: any) {
+    console.error("Error updating profile:", error.response?.data || error.message);
+    throw error.response?.data || error.message;
+  }
+},
 };

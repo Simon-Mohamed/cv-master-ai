@@ -127,10 +127,48 @@ export default function ProfilePage() {
       });
       setShowForm(false);
     } catch (error: any) {
-      console.error("Error adding skill:", error.response?.data || error.message);
+      console.error(
+        "Error adding skill:",
+        error.response?.data || error.message
+      );
       alert("Failed to add skill. Check console for details.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ---------------- Remove Skill ----------------
+  const handleRemoveSkill = async (skillId: number) => {
+    if (!confirm("Are you sure you want to remove this skill?")) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(
+        `http://127.0.0.1:8000/api/profile/skills/${skillId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        }
+      );
+
+      // تحديث الواجهة بعد الحذف
+      setSkills((prev) => prev.filter((skill) => skill.id !== skillId));
+      if (profile) {
+        setProfile({
+          ...profile,
+          skills: (profile.skills || []).filter(
+            (skill) => skill.id !== skillId
+          ),
+        });
+      }
+    } catch (error: any) {
+      console.error(
+        "Error removing skill:",
+        error.response?.data || error.message
+      );
+      alert("Failed to remove skill. Check console for details.");
     }
   };
 
@@ -308,6 +346,14 @@ export default function ProfilePage() {
                   className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2"
                 >
                   {`${skill.title} ${skill.proficiency_level} (${skill.years_of_experience} yrs)`}
+
+                  <button
+                    onClick={() => handleRemoveSkill(skill.id!)}
+                    className="ml-2 bg-white/20 hover:bg-white/30 rounded-full p-1"
+                    title="Remove Skill"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               ))
             ) : (
