@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import DashboardNav from "@/components/dashboard-nav";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/lib/authService";
+import axios from "axios";
+
 import {
   Mail,
   MapPin,
@@ -13,96 +15,49 @@ import {
   Edit2,
   Save,
   X,
-  Upload,
   Plus,
-  MoreVertical,
-  TrendingUp,
-  Zap,
 } from "lucide-react";
-import Link from "next/link";
 
-// ----------------- Interfaces ------------------
+// ---------------- Interfaces -----------------
 interface User {
   id?: number;
   name?: string;
   email?: string;
-  created_at?: string;
 }
 
-export interface Education {
+interface Skill {
   id?: number;
-  institution?: string;
-  degree?: string;
-  field_of_study?: string;
-  start_date?: string;
-  end_date?: string;
-  grade?: string;
-  description?: string;
-}
-
-export interface WorkExperience {
-  id?: number;
-  company_name?: string;
-  position?: string;
-  start_date?: string;
-  end_date?: string;
-  is_current?: boolean;
-  location?: string;
-  description?: string;
-  achievements?: string;
-}
-
-export interface Skill {
-  id?: number;
+  title?: string;
   years_of_experience?: number;
   proficiency_level?: string;
 }
 
-export interface JobApplication {
-  id?: number;
-  job_title?: string;
-  status?: string;
-}
-
-export interface Profile {
+interface Profile {
   id?: number;
   name?: string;
   email?: string;
   role?: string;
-  email_verified_at?: string | null;
-  created_at?: string;
-  updated_at?: string;
-  education?: Education[];
-  work_experiences?: WorkExperience[];
-  skills?: Skill[];
-  job_applications?: JobApplication[];
   phone_number?: string | null;
   location?: string | null;
   professional_bio?: string | null;
   years_of_experience?: number;
-  profile_picture?: string | null;
+  skills?: Skill[];
 }
 
-interface CV {
-  id?: string;
-  name?: string;
-  createdAt?: string;
-}
-
-// ---------------- Component --------------------
-
+// ---------------- Component -----------------
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [skillInput, setSkillInput] = useState("");
-  const [cvs, setCvs] = useState<CV[]>([]);
-  const [jobStats] = useState({
-    applied: 12,
-    interviewing: 3,
-    offered: 1,
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [showForm, setShowForm] = useState(false);
+
+  const [newSkill, setNewSkill] = useState<Skill>({
+    title: "",
+    years_of_experience: 0,
+    proficiency_level: "beginner",
   });
 
   useEffect(() => {
@@ -112,30 +67,58 @@ export default function ProfilePage() {
         router.push("/login");
         return;
       }
-
       setUser(JSON.parse(userData));
 
       try {
         const profileData = await authService.getProfile();
         setProfile(profileData);
-        localStorage.setItem("cvmaster_profile", JSON.stringify(profileData));
+        setSkills(profileData.skills || []);
       } catch (error) {
         console.error("Error fetching profile:", error);
+      } finally {
+        setLoading(false);
       }
-
-      const savedCvs = localStorage.getItem("cvmaster_cvs");
-      if (savedCvs) setCvs(JSON.parse(savedCvs));
-
-      setLoading(false);
     };
 
     fetchData();
   }, [router]);
 
-  const handleSave = () => {
-    if (profile) {
+  // ---------------- Handle Inputs ----------------
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    setNewSkill({ ...newSkill, [e.target.name]: e.target.value });
+  };
+
+  // ---------------- Add Skill ----------------
+  const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await axios.post("/api/skills", newSkill);
+      setSkills((prev) => [...prev, res.data]);
+      setNewSkill({
+        title: "",
+        years_of_experience: 0,
+        proficiency_level: "beginner",
+      });
+      setShowForm(false);
+    } catch (error) {
+      console.error("Error adding skill:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---------------- Save Profile ----------------
+  const handleSaveProfile = async () => {
+    if (!profile) return;
+    try {
+      await authService.updateProfile(profile);
       localStorage.setItem("cvmaster_profile", JSON.stringify(profile));
       setEditing(false);
+    } catch (error) {
+      console.error("Error saving profile:", error);
     }
   };
 
@@ -150,9 +133,8 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-900">
       <DashboardNav user={user} />
-
       <main className="max-w-6xl mx-auto px-4 py-12">
-        {/* ---------------- Header ---------------- */}
+        {/* ------------- Header ------------- */}
         <div className="mb-8">
           <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -160,7 +142,6 @@ export default function ProfilePage() {
                 <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
                   {profile.name && profile.name.charAt(0).toUpperCase()}
                 </div>
-
                 <div>
                   <h1 className="text-3xl font-bold text-white mb-2">
                     {profile.name}
@@ -193,7 +174,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* ---------------- Basic Info ---------------- */}
+        {/* ------------- Basic Info ------------- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
@@ -246,7 +227,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* ---------------- Bio ---------------- */}
+        {/* ------------- Bio ------------- */}
         <div className="mb-8 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
           <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
             <Briefcase size={20} className="text-purple-400" /> Professional Bio
@@ -262,7 +243,7 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* ---------------- Experience ---------------- */}
+        {/* ------------- Years of Experience ------------- */}
         <div className="mb-8 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
           <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
             <Award size={20} className="text-purple-400" /> Years of Experience
@@ -281,30 +262,93 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* ---------------- Skills ---------------- */}
+        {/* ------------- Skills Section ------------- */}
         <div className="mb-8 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
-          <h2 className="text-xl font-bold text-white mb-6">Skills</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-white">Skills</h2>
+            <Button
+              onClick={() => setShowForm(!showForm)}
+              className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
+            >
+              <Plus size={18} /> Add Skill
+            </Button>
+          </div>
+
+          {/* Display Skills */}
           <div className="flex flex-wrap gap-3 mb-6">
-            {profile.skills && profile.skills.length > 0 ? (
-              profile.skills.map((skill, index) => (
+            {skills && skills.length > 0 ? (
+              skills.map((skill, index) => (
                 <div
                   key={index}
                   className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2"
                 >
-                  {`${skill.proficiency_level} (${skill.years_of_experience} yrs)`}
+                  {`${skill.title} ${skill.proficiency_level} (${skill.years_of_experience} yrs)`}
                 </div>
               ))
             ) : (
               <p className="text-white/50 text-sm">No skills added yet</p>
             )}
           </div>
+
+          {/* Add Skill Form */}
+          {showForm && (
+            <form onSubmit={handleAddSkill} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input
+                  type="text"
+                  name="title"
+                  value={newSkill.title}
+                  onChange={handleChange}
+                  placeholder="Skill Title"
+                  required
+                  className="px-4 py-3 bg-white/5 border border-white/10 text-white rounded-lg"
+                />
+                <input
+                  type="number"
+                  name="years_of_experience"
+                  value={newSkill.years_of_experience}
+                  onChange={handleChange}
+                  placeholder="Years of Experience"
+                  required
+                  className="px-4 py-3 bg-white/5 border border-white/10 text-white rounded-lg"
+                />
+                <select
+                  name="proficiency_level"
+                  value={newSkill.proficiency_level}
+                  onChange={handleChange}
+                  className="px-4 py-3 bg-white/5 border border-white/10 text-white rounded-lg"
+                >
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="expert">Expert</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-4">
+                <Button
+                  type="submit"
+                  className="bg-gradient-to-r from-purple-500 to-purple-600 text-white"
+                >
+                  Save Skill
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  variant="outline"
+                  className="border-white/20 text-white hover:bg-white/10"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
 
-        {/* ---------------- Action Buttons ---------------- */}
+        {/* ------------- Save Button ------------- */}
         {editing && (
           <div className="flex gap-4 justify-end">
             <Button
-              onClick={handleSave}
+              onClick={handleSaveProfile}
               className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white px-8 py-3 rounded-lg font-semibold"
             >
               <Save size={18} /> Save Changes
