@@ -3,6 +3,7 @@ import axios from 'axios';
 const API_URL = 'http://127.0.0.1:8000/api';
 
 export const authService = {
+  // register user
     register: async (userData: any) => {
         try {
             const response = await axios.post(`${API_URL}/register`, userData);
@@ -15,6 +16,7 @@ export const authService = {
             throw error.response?.data || error.message;
         }
     },
+    // login user
 
     login: async (credentials: any) => {
         try {
@@ -28,12 +30,14 @@ export const authService = {
             throw error.response?.data || error.message;
         }
     },
+    // logout user
 
     logout: () => {
     localStorage.removeItem("cvmaster_user")
     localStorage.removeItem("token")
     localStorage.removeItem("cvmaster_profile")
     },
+    // get user profile
      getProfile: async () => {
     try {
       const token = localStorage.getItem("token")
@@ -57,31 +61,36 @@ export const authService = {
       throw error.response?.data || error.message
     }
   },
-  updateProfile: async (profileData: any) => {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("No authentication token found.");
+  // update user profile
+ updateProfile: async (profileData: any) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("No authentication token found.");
+      }
+
+      // Laravel يحتاج _method=PUT لو endpoint بيقبل PUT فقط
+      const payload = { ...profileData, _method: "PUT" };
+
+      const response = await axios.post(`${API_URL}/profile`, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      localStorage.setItem("cvmaster_profile", JSON.stringify(response.data.profile));
+      return response.data.profile;
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        console.error("Error updating profile:", error.response?.data);
+        throw error.response?.data || error.message;
+      } else {
+        console.error("Unexpected error:", error);
+        throw error;
+      }
     }
+  },
 
-    // نضيف _method=PUT لأنك بتستخدمي POST مع Laravel
-    const payload = { ...profileData, _method: "PUT" };
-
-    const response = await axios.post(`${API_URL}/profile`, payload, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-    });
-
-    // حفظ التحديث في localStorage لو حبيتي
-    localStorage.setItem("cvmaster_profile", JSON.stringify(response.data.profile));
-
-    return response.data.profile;
-  } catch (error: any) {
-    console.error("Error updating profile:", error.response?.data || error.message);
-    throw error.response?.data || error.message;
-  }
-},
 };
