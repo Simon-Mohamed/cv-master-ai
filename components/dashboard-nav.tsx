@@ -5,10 +5,10 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
 interface User {
-  id: string
-  name: string
-  email: string
-  createdAt: string
+  id?: number
+  name?: string
+  email?: string
+  created_at?: string
 }
 
 export default function DashboardNav({ user }: { user: User }) {

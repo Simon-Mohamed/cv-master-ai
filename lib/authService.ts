@@ -30,6 +30,31 @@ export const authService = {
     },
 
     logout: () => {
-        localStorage.removeItem('user');
+    localStorage.removeItem("cvmaster_user")
+    localStorage.removeItem("token")
+    localStorage.removeItem("cvmaster_profile")
+    },
+     getProfile: async () => {
+    try {
+      const token = localStorage.getItem("token")
+
+      if (!token) {
+        throw new Error("No authentication token found.")
+      }
+
+      const response = await axios.get(`${API_URL}/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      })
+
+      // حفظ البيانات في localStorage (اختياري)
+    //   localStorage.setItem("cvmaster_profile", JSON.stringify(response.data.profile))
+
+      return response.data.profile
+    } catch (error: any) {
+      throw error.response?.data || error.message
     }
+  },
 };
