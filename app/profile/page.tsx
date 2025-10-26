@@ -59,6 +59,7 @@ export default function ProfilePage() {
     proficiency_level: "beginner",
   });
 
+  // ---------------- Load Profile ----------------
   useEffect(() => {
     const fetchData = async () => {
       const userData = localStorage.getItem("cvmaster_user");
@@ -94,16 +95,24 @@ export default function ProfilePage() {
     e.preventDefault();
     setLoading(true);
     try {
-      // إرسال البيانات كـ array
-      const res = await axios.post("/api//profile/skills", {
-        skills: [newSkill],
-      });
+      const token = localStorage.getItem("token");
 
-      // إضافة المهارة إلى الـ state
+      const res = await axios.post(
+        "http://127.0.0.1:8000/api/profile/skills",
+        {
+          skills: [newSkill], // ✅ Send as array
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
       const addedSkills: Skill[] = res.data.skills || [newSkill];
       setSkills((prev) => [...prev, ...addedSkills]);
 
-      // تحديث الـ profile في نفس الصفحة
       if (profile) {
         setProfile({
           ...profile,
@@ -111,15 +120,15 @@ export default function ProfilePage() {
         });
       }
 
-      // إعادة ضبط النموذج
       setNewSkill({
         title: "",
         years_of_experience: 0,
         proficiency_level: "beginner",
       });
       setShowForm(false);
-    } catch (error) {
-      console.error("Error adding skill:", error);
+    } catch (error: any) {
+      console.error("Error adding skill:", error.response?.data || error.message);
+      alert("Failed to add skill. Check console for details.");
     } finally {
       setLoading(false);
     }
@@ -137,6 +146,7 @@ export default function ProfilePage() {
     }
   };
 
+  // ---------------- Loading State ----------------
   if (loading || !user || !profile) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-900">
@@ -145,6 +155,7 @@ export default function ProfilePage() {
     );
   }
 
+  // ---------------- Page Layout ----------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-900">
       <DashboardNav user={user} />
@@ -285,7 +296,7 @@ export default function ProfilePage() {
               onClick={() => setShowForm(!showForm)}
               className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
             >
-              <Plus size={18} /> Add Skill
+              <Plus size={18} /> {showForm ? "Cancel" : "Add Skill"}
             </Button>
           </div>
 
@@ -340,17 +351,10 @@ export default function ProfilePage() {
               <div className="flex justify-end gap-4">
                 <Button
                   type="submit"
+                  disabled={loading}
                   className="bg-gradient-to-r from-purple-500 to-purple-600 text-white"
                 >
-                  Save Skill
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  variant="outline"
-                  className="border-white/20 text-white hover:bg-white/10"
-                >
-                  Cancel
+                  {loading ? "Saving..." : "Save Skill"}
                 </Button>
               </div>
             </form>
