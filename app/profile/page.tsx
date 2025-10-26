@@ -354,8 +354,8 @@ export default function ProfilePage() {
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl hover:shadow-xl transition-shadow duration-300">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-white">Job Applications</h2>
-              <Link href="/job-search">
-                <a className="text-sm font-bold text-purple-400 hover:text-purple-300 transition-colors">View All</a>
+              <Link href="/job-search" className="text-sm font-bold text-purple-400 hover:text-purple-300 transition-colors">
+                View All
               </Link>
             </div>
             <div className="space-y-4">
