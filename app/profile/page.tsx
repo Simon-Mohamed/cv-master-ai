@@ -6,7 +6,6 @@ import DashboardNav from "@/components/dashboard-nav";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/lib/authService";
 import axios from "axios";
-
 import {
   Mail,
   MapPin,
@@ -95,8 +94,24 @@ export default function ProfilePage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post("/api/skills", newSkill);
-      setSkills((prev) => [...prev, res.data]);
+      // إرسال البيانات كـ array
+      const res = await axios.post("/api//profile/skills", {
+        skills: [newSkill],
+      });
+
+      // إضافة المهارة إلى الـ state
+      const addedSkills: Skill[] = res.data.skills || [newSkill];
+      setSkills((prev) => [...prev, ...addedSkills]);
+
+      // تحديث الـ profile في نفس الصفحة
+      if (profile) {
+        setProfile({
+          ...profile,
+          skills: [...(profile.skills || []), ...addedSkills],
+        });
+      }
+
+      // إعادة ضبط النموذج
       setNewSkill({
         title: "",
         years_of_experience: 0,
@@ -134,7 +149,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-900">
       <DashboardNav user={user} />
       <main className="max-w-6xl mx-auto px-4 py-12">
-        {/* ------------- Header ------------- */}
+        {/* Header */}
         <div className="mb-8">
           <div className="relative bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -174,7 +189,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* ------------- Basic Info ------------- */}
+        {/* Basic Info */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
@@ -227,7 +242,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* ------------- Bio ------------- */}
+        {/* Bio */}
         <div className="mb-8 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
           <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
             <Briefcase size={20} className="text-purple-400" /> Professional Bio
@@ -243,7 +258,7 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* ------------- Years of Experience ------------- */}
+        {/* Years of Experience */}
         <div className="mb-8 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
           <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
             <Award size={20} className="text-purple-400" /> Years of Experience
@@ -262,7 +277,7 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* ------------- Skills Section ------------- */}
+        {/* Skills Section */}
         <div className="mb-8 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold text-white">Skills</h2>
@@ -274,7 +289,6 @@ export default function ProfilePage() {
             </Button>
           </div>
 
-          {/* Display Skills */}
           <div className="flex flex-wrap gap-3 mb-6">
             {skills && skills.length > 0 ? (
               skills.map((skill, index) => (
@@ -290,7 +304,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Add Skill Form */}
           {showForm && (
             <form onSubmit={handleAddSkill} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -344,7 +357,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* ------------- Save Button ------------- */}
+        {/* Save Button */}
         {editing && (
           <div className="flex gap-4 justify-end">
             <Button
