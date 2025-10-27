@@ -144,12 +144,13 @@ export default function AIAnalysis() {
 
     try {
       const prompt = generateAnalysisPrompt()
-      
+      // api key removed for security
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer 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`
+          // api key removed for security
+          'Authorization': ``
         },
         body: JSON.stringify({
           model: 'gpt-3.5-turbo-0125',
