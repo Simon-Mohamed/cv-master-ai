@@ -83,38 +83,97 @@ export default function ProfilePage() {
   }, [router]);
 
   // ---------- Add Skill ----------
-  const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.post(
-        "http://127.0.0.1:8000/api/profile/skills",
-        { skills: [newSkill] },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+  // const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
+  //   e.preventDefault();
+  //   setLoading(true);
+  //   try {
+  //     const token = localStorage.getItem("token");
+  //     const res = await axios.post(
+  //       "http://127.0.0.1:8000/api/profile/skills",
+  //       { skills: [newSkill] },
+  //       {
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //           "Content-Type": "application/json",
+  //         },
+  //       }
+  //     );
 
-      const addedSkills: Skill[] = res.data.skills || [newSkill];
-      setSkills((prev) => [...prev, ...addedSkills]);
-      setProfile((prev) =>
-        prev ? { ...prev, skills: [...(prev.skills || []), ...addedSkills] } : prev
-      );
+  //     const addedSkills: Skill[] = res.data.skills || [newSkill];
+  //     setSkills((prev) => [...prev, ...addedSkills]);
+  //     setProfile((prev) =>
+  //       prev ? { ...prev, skills: [...(prev.skills || []), ...addedSkills] } : prev
+  //     );
 
-      setNewSkill({ title: "", years_of_experience: 0, proficiency_level: "beginner" });
-      setShowForm(false);
-      toast.success("Skill added successfully!");
-    } catch (error: any) {
-      console.error("Error adding skill:", error.response?.data || error.message);
-      toast.error("Failed to add skill");
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     setNewSkill({ title: "", years_of_experience: 0, proficiency_level: "beginner" });
+  //     setShowForm(false);
+  //     toast.success("Skill added successfully!");
+  //   } catch (error: any) {
+  //     console.error("Error adding skill:", error.response?.data || error.message);
+  //     toast.error("Failed to add skill");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+  // ---------- Add Skill ----------
+const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setLoading(true);
+  try {
+    const token = localStorage.getItem("token");
+
+    const res = await axios.post(
+      "http://127.0.0.1:8000/api/profile/skills",
+      { skills: [newSkill] },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    // ✅ استخدمي المهارات اللي رجعت من السيرفر
+    const addedSkills: Skill[] = res.data.skills || [];
+
+    // ✅ احذفي أي عناصر مكررة (بنفس الـ id)
+    setSkills((prev) => {
+      const allSkills = [...prev, ...addedSkills];
+      const uniqueSkills = allSkills.filter(
+        (s, index, self) => index === self.findIndex((t) => t.id === s.id)
+      );
+      return uniqueSkills;
+    });
+
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            skills: [
+              ...(prev.skills || []).filter(
+                (s) => !addedSkills.some((a) => a.id === s.id)
+              ),
+              ...addedSkills,
+            ],
+          }
+        : prev
+    );
+
+    setNewSkill({
+      title: "",
+      years_of_experience: 0,
+      proficiency_level: "beginner",
+    });
+    setShowForm(false);
+    toast.success("Skill added successfully!");
+  } catch (error: any) {
+    console.error("Error adding skill:", error.response?.data || error.message);
+    toast.error("Failed to add skill");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // ---------- Remove Skill ----------
   const handleRemoveSkill = async (skillId: number) => {
