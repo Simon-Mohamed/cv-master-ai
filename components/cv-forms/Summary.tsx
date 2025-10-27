@@ -29,15 +29,16 @@ export default function Summary({ onNext }: SummaryProps) {
       const prompt = `Generate a professional summary for a ${cvData.personalInfo.jobTitle} position. The person's name is ${cvData.personalInfo.firstName} ${cvData.personalInfo.lastName}. 
       
       Create a compelling 3-4 sentence professional summary that highlights key strengths, experience level, and career objectives. Make it specific to the ${cvData.personalInfo.jobTitle} role and professional.`
-      
+      // api link
       const response = await fetch('', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // api key
           'Authorization': ''
         },
         body: JSON.stringify({
-          // model: 'gpt-4',
+        // model name
           model: '',
           messages: [
             {
