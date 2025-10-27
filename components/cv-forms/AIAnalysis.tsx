@@ -144,16 +144,15 @@ export default function AIAnalysis() {
 
     try {
       const prompt = generateAnalysisPrompt()
-      // api key removed for security
+      
       const response = await fetch('', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          //  key removed for security
           'Authorization': ``
         },
         body: JSON.stringify({
-          model: 'gpt-3.5-turbo-0125',
+          model: '',
           messages: [
             {
               role: 'system',
