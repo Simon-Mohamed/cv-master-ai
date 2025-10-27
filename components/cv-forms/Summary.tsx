@@ -30,14 +30,15 @@ export default function Summary({ onNext }: SummaryProps) {
       
       Create a compelling 3-4 sentence professional summary that highlights key strengths, experience level, and career objectives. Make it specific to the ${cvData.personalInfo.jobTitle} role and professional.`
       
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer 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`
+          'Authorization': ''
         },
         body: JSON.stringify({
-          model: 'gpt-4',
+          // model: 'gpt-4',
+          model: '',
           messages: [
             {
               role: 'system',
