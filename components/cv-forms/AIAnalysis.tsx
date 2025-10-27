@@ -145,11 +145,11 @@ export default function AIAnalysis() {
     try {
       const prompt = generateAnalysisPrompt()
       // api key removed for security
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // api key removed for security
+          //  key removed for security
           'Authorization': ``
         },
         body: JSON.stringify({
