@@ -64,6 +64,7 @@ export default function AIAnalysis() {
   const [jobTitle, setJobTitle] = useState('')
   const [jobDescription, setJobDescription] = useState('')
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
+  const [atsScore, setAtsScore] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
 
   const sectionIcons = {
@@ -142,17 +143,84 @@ export default function AIAnalysis() {
     setAnalysisResult(null)
 
     try {
-      // Simulate AI analysis with realistic data
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      const prompt = generateAnalysisPrompt()
       
-      const mockAnalysis: AnalysisResult = {
-        overallScore: 78,
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer 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`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo-0125',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert resume analyst and career advisor. Analyze resumes and provide detailed, actionable feedback in JSON format.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 4000
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const aiResponse = data.choices[0].message.content
+
+      // Parse the JSON response from AI
+      const parsedAnalysis = JSON.parse(aiResponse)
+      setAnalysisResult(parsedAnalysis)
+
+      // Compute dynamic ATS score based on presence of AI-suggested keywords in the resume
+      try {
+        const computeAtsScore = (analysis: AnalysisResult) => {
+          const resumeText = JSON.stringify({
+            summary: cvData?.summary,
+            experience: cvData?.experience,
+            skills: cvData?.skills,
+            education: cvData?.education,
+            projects: cvData?.projects,
+            achievements: cvData?.achievements
+          }).toLowerCase()
+
+          const keywords = analysis.ats_keywords || []
+          const totalWeight = keywords.reduce((s, k) => s + (k.score || 0), 0) || 1
+          const matchedWeight = keywords.reduce((s, k) => {
+            const kw = (k.keyword || '').toString().toLowerCase()
+            const found = kw && resumeText.includes(kw)
+            return s + (found ? (k.score || 0) : 0)
+          }, 0)
+
+          return Math.round((matchedWeight / totalWeight) * 100)
+        }
+
+        const dyn = computeAtsScore(parsedAnalysis)
+        setAtsScore(dyn)
+      } catch (e) {
+        console.warn('Failed to compute dynamic ATS score', e)
+        setAtsScore(null)
+      }
+      
+    } catch (error) {
+      console.error('Analysis failed:', error)
+      
+      // Fallback to mock data if API fails
+      const fallbackAnalysis: AnalysisResult = {
+        overallScore: 75,
         ats_keywords: [
-          { keyword: "JavaScript", score: 95, recommended_sections: ["skills", "experience"], example_usage: "Developed JavaScript applications" },
-          { keyword: "React", score: 90, recommended_sections: ["skills", "projects"], example_usage: "Built React components" },
-          { keyword: "Node.js", score: 85, recommended_sections: ["experience", "projects"], example_usage: "Implemented Node.js backend" },
-          { keyword: "Agile", score: 80, recommended_sections: ["experience"], example_usage: "Worked in Agile development environment" },
-          { keyword: "Git", score: 75, recommended_sections: ["skills"], example_usage: "Version control with Git" }
+          { keyword: "JavaScript", score: 90, recommended_sections: ["skills", "experience"], example_usage: "Developed JavaScript applications" },
+          { keyword: "React", score: 85, recommended_sections: ["skills", "projects"], example_usage: "Built React components" },
+          { keyword: "Node.js", score: 80, recommended_sections: ["experience", "projects"], example_usage: "Implemented Node.js backend" },
+          { keyword: "Agile", score: 75, recommended_sections: ["experience"], example_usage: "Worked in Agile development environment" },
+          { keyword: "Git", score: 70, recommended_sections: ["skills"], example_usage: "Version control with Git" }
         ],
         section_edits: {
           summary: ["Add specific technologies mentioned in job description", "Include quantifiable achievements"],
@@ -163,8 +231,8 @@ export default function AIAnalysis() {
           achievements: ["Add quantifiable metrics", "Include industry recognition"]
         },
         skill_gaps: [
-          { skill: "TypeScript", importance: 90, improvement_strategy: "Take online course and build projects", resources: ["TypeScript Handbook", "Udemy Course"] },
-          { skill: "Docker", importance: 85, improvement_strategy: "Practice containerization", resources: ["Docker Documentation", "YouTube Tutorials"] }
+          { skill: "TypeScript", importance: 85, improvement_strategy: "Take online course and build projects", resources: ["TypeScript Handbook", "Udemy Course"] },
+          { skill: "Docker", importance: 80, improvement_strategy: "Practice containerization", resources: ["Docker Documentation", "YouTube Tutorials"] }
         ],
         positives: [
           { strength: "Strong technical foundation", section: "skills", impact: "High" },
@@ -175,14 +243,42 @@ export default function AIAnalysis() {
           advanced: ["Node.js", "Express", "MongoDB"],
           distinguishing: ["GraphQL", "AWS", "Microservices"]
         },
-        match_percentage: 78,
+        match_percentage: 75,
         role_specific_insights: "Strong foundation in frontend development with good project experience. Consider adding more backend technologies and DevOps skills."
       }
+      
 
-      setAnalysisResult(mockAnalysis)
-    } catch (error) {
-      console.error('Analysis failed:', error)
-      alert('Analysis failed. Please try again.')
+      
+      setAnalysisResult(fallbackAnalysis)
+      // compute ATS score for fallback as well
+      try {
+        const computeAtsScore = (analysis: AnalysisResult) => {
+          const resumeText = JSON.stringify({
+            summary: cvData?.summary,
+            experience: cvData?.experience,
+            skills: cvData?.skills,
+            education: cvData?.education,
+            projects: cvData?.projects,
+            achievements: cvData?.achievements
+          }).toLowerCase()
+
+          const keywords = analysis.ats_keywords || []
+          const totalWeight = keywords.reduce((s, k) => s + (k.score || 0), 0) || 1
+          const matchedWeight = keywords.reduce((s, k) => {
+            const kw = (k.keyword || '').toString().toLowerCase()
+            const found = kw && resumeText.includes(kw)
+            return s + (found ? (k.score || 0) : 0)
+          }, 0)
+
+          return Math.round((matchedWeight / totalWeight) * 100)
+        }
+
+        const dyn = computeAtsScore(fallbackAnalysis)
+        setAtsScore(dyn)
+      } catch (e) {
+        setAtsScore(null)
+      }
+      alert('Using fallback analysis due to API error. Please check your connection.')
     } finally {
       setLoading(false)
     }
@@ -243,6 +339,16 @@ export default function AIAnalysis() {
             </div>
             <Progress value={analysisResult.match_percentage} className="h-2" />
             <p className="text-sm text-muted-foreground mt-2">{analysisResult.role_specific_insights}</p>
+          </div>
+
+          {/* ATS Compatibility (dynamic) */}
+          <div className="bg-card p-4 rounded-lg border">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold">ATS Compatibility</h3>
+              <span className="text-2xl font-bold text-primary">{atsScore !== null ? `${atsScore}%` : '—'}</span>
+            </div>
+            <Progress value={atsScore ?? 0} className="h-2" />
+            <p className="text-sm text-muted-foreground mt-2">This score estimates how well your resume will be parsed and matched by Applicant Tracking Systems based on detected keywords.</p>
           </div>
 
           {/* ATS Keywords */}

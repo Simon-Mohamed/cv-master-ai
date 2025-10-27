@@ -26,14 +26,49 @@ export default function Summary({ onNext }: SummaryProps) {
   const generateAISummary = async () => {
     setAiLoading(true)
     try {
-      // Simulate AI API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const prompt = `Generate a professional summary for a ${cvData.personalInfo.jobTitle} position. The person's name is ${cvData.personalInfo.firstName} ${cvData.personalInfo.lastName}. 
       
-      const aiSummary = `Experienced ${cvData.personalInfo.jobTitle} with a strong background in delivering high-quality solutions. Proven track record of success in collaborative environments and commitment to continuous learning and professional development.`
+      Create a compelling 3-4 sentence professional summary that highlights key strengths, experience level, and career objectives. Make it specific to the ${cvData.personalInfo.jobTitle} role and professional.`
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer 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`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a professional resume writer and career advisor. Generate compelling, professional summaries for resumes.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 200
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const aiSummary = data.choices[0].message.content.trim()
       
       updateSummary(aiSummary)
     } catch (error) {
       console.error("AI generation failed:", error)
+      
+      // Fallback summary
+      const fallbackSummary = `Experienced ${cvData.personalInfo.jobTitle} with a strong background in delivering high-quality solutions. Proven track record of success in collaborative environments and commitment to continuous learning and professional development.`
+      
+      updateSummary(fallbackSummary)
+      alert('Using fallback summary due to API error. Please check your connection.')
     } finally {
       setAiLoading(false)
     }

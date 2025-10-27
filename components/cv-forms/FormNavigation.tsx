@@ -28,7 +28,6 @@ const steps = [
 export default function FormNavigation() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
-  const [enableNext, setEnableNext] = useState(false)
   const [showAnalysis, setShowAnalysis] = useState(false)
 
   const currentStepData = steps.find(step => step.id === currentStep)
@@ -37,14 +36,12 @@ export default function FormNavigation() {
   const handleNext = () => {
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1)
-      setEnableNext(false)
     }
   }
 
   const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
-      setEnableNext(false)
     }
   }
 
@@ -90,20 +87,7 @@ export default function FormNavigation() {
               Previous
             </Button>
           )}
-          {currentStep < steps.length ? (
-            <Button
-              disabled={!enableNext}
-              size="sm"
-              onClick={handleNext}
-              className={`${
-                enableNext
-                  ? "bg-primary hover:bg-primary/90"
-                  : "bg-gray-500 cursor-not-allowed"
-              }`}
-            >
-              Next <ArrowRight className="w-4 h-4" />
-            </Button>
-          ) : (
+          {currentStep === steps.length && (
             <Button
               size="sm"
               onClick={handleFinish}
@@ -140,7 +124,7 @@ export default function FormNavigation() {
         {/* Form Content */}
         <div>
           {CurrentComponent && (
-            <CurrentComponent onNext={() => setEnableNext(true)} />
+            <CurrentComponent onNext={handleNext} />
           )}
         </div>
 
