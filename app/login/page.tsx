@@ -4,6 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
+import { authService } from '@/lib/authService';
 
 export default function AuthPage() {
   const router = useRouter()
@@ -35,54 +36,72 @@ export default function AuthPage() {
 
     try {
       if (mode === "login") {
+        // --- LOGIN LOGIC ---
         if (!formData.email || !formData.password) {
           setError("Please fill in all fields")
+          setLoading(false)
           return
         }
 
-        const user = {
-          id: "1",
+        const response = await authService.login({
           email: formData.email,
-          name: formData.email.split("@")[0],
-          createdAt: new Date().toISOString(),
-        }
-
-        localStorage.setItem("cvmaster_user", JSON.stringify(user))
-        // Dispatch custom event to notify header
-        window.dispatchEvent(new CustomEvent('userLogin'))
+          password: formData.password
+        });
+          console.log(response);
+          
+        // Check for the 'user' object from the Laravel session response
+        if (response && response.user) {
+          // Dispatch custom event to notify header
+           window.dispatchEvent(new CustomEvent('userLogin'))
         // Force page refresh to update header
         window.location.href = "/"
+        } else {
+          // Fallback error handling for non-thrown errors
+          setError("Invalid credentials or server error. Please check your email and password.")
+        }
       } else {
+        // --- SIGNUP LOGIC ---
         if (!formData.name || !formData.email || !formData.password) {
           setError("Please fill in all fields")
+          setLoading(false)
           return
         }
 
         if (formData.password !== formData.confirmPassword) {
           setError("Passwords do not match")
+          setLoading(false)
           return
         }
 
-        if (formData.password.length < 6) {
-          setError("Password must be at least 6 characters")
+        // Client-side password length check
+        if (formData.password.length < 8) {
+          setError("Password must be at least 8 characters (matches backend rule)")
+          setLoading(false)
           return
         }
 
-        const user = {
-          id: Math.random().toString(36).substr(2, 9),
+        const response = await authService.register({
           name: formData.name,
           email: formData.email,
-          createdAt: new Date().toISOString(),
-        }
+          password: formData.password,
+          password_confirmation: formData.confirmPassword
+        });
 
-        localStorage.setItem("cvmaster_user", JSON.stringify(user))
-        // Dispatch custom event to notify header
-        window.dispatchEvent(new CustomEvent('userLogin'))
-        // Force page refresh to update header
-        window.location.href = "/"
+        // If registration was successful, the user is automatically logged in.
+        if (response && response.user) {
+          window.dispatchEvent(new CustomEvent('userLogin'))
+            window.location.href = "/"
+        } else {
+          // If the service succeeded but didn't return a user (shouldn't happen in the mock, but for safety)
+         
+        
+          setError("Error! Please check your fields.");
+        }
       }
     } catch (err) {
-      setError("Authentication failed. Please try again.")
+      // Handle the error thrown by the mock service or network
+           setError("Authentication failed. Please try again.")
+
     } finally {
       setLoading(false)
     }
@@ -91,6 +110,8 @@ export default function AuthPage() {
   const handleSocialAuth = async (provider: string) => {
     setSocialLoading(true)
     try {
+      // NOTE: Using localStorage here is temporary and should be replaced 
+      // with a proper API call to your Laravel backend for OAuth.
       const user = {
         id: Math.random().toString(36).substr(2, 9),
         email: `user@${provider}.com`,
@@ -99,11 +120,12 @@ export default function AuthPage() {
         createdAt: new Date().toISOString(),
       }
 
+      // WARNING: localStorage is not recommended for production state management.
       localStorage.setItem("cvmaster_user", JSON.stringify(user))
       // Dispatch custom event to notify header
       window.dispatchEvent(new CustomEvent('userLogin'))
       // Force page refresh to update header
-      window.location.href = "/"
+   window.location.href = "/"
     } catch (err) {
       setError(`${provider} authentication failed. Please try again.`)
     } finally {

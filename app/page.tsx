@@ -8,10 +8,11 @@ import FAQs from "@/components/faqs"
 import Blog from "@/components/blog"
 import CTA from "@/components/cta"
 import Footer from "@/components/footer"
-
+import { Toaster } from "react-hot-toast";
 export default function Home() {
   return (
     <main className="min-h-screen bg-white">
+      <Toaster position="top-right" />
       <Header />
       <Hero />
       <Mission />
