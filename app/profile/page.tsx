@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import DashboardNav from "@/components/dashboard-nav";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/lib/authService";
@@ -16,6 +17,8 @@ import {
   Save,
   X,
   Plus,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
 
 // -------- Interfaces ----------
@@ -83,97 +86,61 @@ export default function ProfilePage() {
   }, [router]);
 
   // ---------- Add Skill ----------
-  // const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
-  //   e.preventDefault();
-  //   setLoading(true);
-  //   try {
-  //     const token = localStorage.getItem("token");
-  //     const res = await axios.post(
-  //       "http://127.0.0.1:8000/api/profile/skills",
-  //       { skills: [newSkill] },
-  //       {
-  //         headers: {
-  //           Authorization: `Bearer ${token}`,
-  //           "Content-Type": "application/json",
-  //         },
-  //       }
-  //     );
-
-  //     const addedSkills: Skill[] = res.data.skills || [newSkill];
-  //     setSkills((prev) => [...prev, ...addedSkills]);
-  //     setProfile((prev) =>
-  //       prev ? { ...prev, skills: [...(prev.skills || []), ...addedSkills] } : prev
-  //     );
-
-  //     setNewSkill({ title: "", years_of_experience: 0, proficiency_level: "beginner" });
-  //     setShowForm(false);
-  //     toast.success("Skill added successfully!");
-  //   } catch (error: any) {
-  //     console.error("Error adding skill:", error.response?.data || error.message);
-  //     toast.error("Failed to add skill");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-  // ---------- Add Skill ----------
-const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setLoading(true);
-  try {
-    const token = localStorage.getItem("token");
-
-    const res = await axios.post(
-      "http://127.0.0.1:8000/api/profile/skills",
-      { skills: [newSkill] },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    // ✅ استخدمي المهارات اللي رجعت من السيرفر
-    const addedSkills: Skill[] = res.data.skills || [];
-
-    // ✅ احذفي أي عناصر مكررة (بنفس الـ id)
-    setSkills((prev) => {
-      const allSkills = [...prev, ...addedSkills];
-      const uniqueSkills = allSkills.filter(
-        (s, index, self) => index === self.findIndex((t) => t.id === s.id)
+  const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.post(
+        "http://127.0.0.1:8000/api/profile/skills",
+        { skills: [newSkill] },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
-      return uniqueSkills;
-    });
 
-    setProfile((prev) =>
-      prev
-        ? {
-            ...prev,
-            skills: [
-              ...(prev.skills || []).filter(
-                (s) => !addedSkills.some((a) => a.id === s.id)
-              ),
-              ...addedSkills,
-            ],
-          }
-        : prev
-    );
+      const addedSkills: Skill[] = res.data.skills || [];
 
-    setNewSkill({
-      title: "",
-      years_of_experience: 0,
-      proficiency_level: "beginner",
-    });
-    setShowForm(false);
-    toast.success("Skill added successfully!");
-  } catch (error: any) {
-    console.error("Error adding skill:", error.response?.data || error.message);
-    toast.error("Failed to add skill");
-  } finally {
-    setLoading(false);
-  }
-};
+      // Avoid duplicates
+      setSkills((prev) => {
+        const allSkills = [...prev, ...addedSkills];
+        const uniqueSkills = allSkills.filter(
+          (s, index, self) => index === self.findIndex((t) => t.id === s.id)
+        );
+        return uniqueSkills;
+      });
 
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              skills: [
+                ...(prev.skills || []).filter(
+                  (s) => !addedSkills.some((a) => a.id === s.id)
+                ),
+                ...addedSkills,
+              ],
+            }
+          : prev
+      );
+
+      setNewSkill({
+        title: "",
+        years_of_experience: 0,
+        proficiency_level: "beginner",
+      });
+      setShowForm(false);
+      toast.success("Skill added successfully!");
+    } catch (error: any) {
+      console.error("Error adding skill:", error.response?.data || error.message);
+      toast.error("Failed to add skill");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ---------- Remove Skill ----------
   const handleRemoveSkill = async (skillId: number) => {
@@ -253,11 +220,10 @@ const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
             </Button>
           </div>
         </div>
-        </main>
 
         {/* Info sections */}
         <div className="grid gap-6">
-          {/* Email + Phone */}
+          {/* Basic Info */}
           <div className="bg-white/10 rounded-2xl p-6">
             <h2 className="text-xl font-bold flex items-center gap-2">
               <Mail size={20} className="text-purple-400" /> Basic Info
@@ -386,24 +352,6 @@ const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
             )}
           </div>
 
-          {editing && (
-            <div className="flex justify-end gap-4">
-              <Button
-                onClick={handleSaveProfile}
-                className="bg-gradient-to-r from-purple-500 to-purple-600"
-              >
-                <Save size={18} /> Save Changes
-              </Button>
-              <Button
-                onClick={() => setEditing(false)}
-                variant="outline"
-                className="border border-white/30"
-              >
-                Cancel
-              </Button>
-            </div>
-          )}
-        </div>
           {/* AI Tools Card */}
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl hover:shadow-xl transition-shadow duration-300">
             <h2 className="text-xl font-bold text-white mb-6">AI Tools</h2>
@@ -414,8 +362,12 @@ const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
                     <TrendingUp size={20} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-white group-hover:text-purple-300 transition">CV Analyzer</h3>
-                    <p className="text-sm text-white/60">Get AI feedback on your CV</p>
+                    <h3 className="font-bold text-white group-hover:text-purple-300 transition">
+                      CV Analyzer
+                    </h3>
+                    <p className="text-sm text-white/60">
+                      Get AI feedback on your CV
+                    </p>
                   </div>
                 </div>
               </Link>
@@ -425,33 +377,37 @@ const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
                     <Zap size={20} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-white group-hover:text-purple-300 transition">Interview Simulator</h3>
-                    <p className="text-sm text-white/60">Practice with AI-powered interviews</p>
+                    <h3 className="font-bold text-white group-hover:text-purple-300 transition">
+                      Interview Simulator
+                    </h3>
+                    <p className="text-sm text-white/60">
+                      Practice with AI-powered interviews
+                    </p>
                   </div>
                 </div>
               </Link>
             </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        {editing && (
-          <div className="flex gap-4 justify-end">
-            <Button
-              onClick={handleSave}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-semibold transition shadow-lg"
-            >
-              <Save size={18} /> Save Changes
-            </Button>
-            <Button
-              onClick={() => setEditing(false)}
-              variant="outline"
-              className="px-8 py-3 rounded-lg font-semibold border-white/20 text-white hover:bg-white/10 transition"
-            >
-              Cancel
-            </Button>
-          </div>
-        )}
+          {/* Action Buttons */}
+          {editing && (
+            <div className="flex gap-4 justify-end">
+              <Button
+                onClick={handleSaveProfile}
+                className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-semibold transition shadow-lg"
+              >
+                <Save size={18} /> Save Changes
+              </Button>
+              <Button
+                onClick={() => setEditing(false)}
+                variant="outline"
+                className="px-8 py-3 rounded-lg font-semibold border-white/20 text-white hover:bg-white/10 transition"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
