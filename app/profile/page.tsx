@@ -387,7 +387,7 @@ export default function ProfilePage() {
           <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl hover:shadow-xl transition-shadow duration-300">
             <h2 className="text-xl font-bold text-white mb-6">AI Tools</h2>
             <div className="space-y-5">
-              <Link href="/cv-analysis">
+              <Link href="/cv-analysis-pro">
                 <div className="flex items-start gap-4 group cursor-pointer">
                   <div className="flex-shrink-0 size-12 bg-purple-500/20 text-purple-400 rounded-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
                     <TrendingUp size={20} />

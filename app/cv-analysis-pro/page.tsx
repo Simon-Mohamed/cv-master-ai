@@ -1,213 +1,3 @@
-// "use client"
-
-// import { useEffect, useState } from "react"
-// import { useRouter } from "next/navigation"
-// import DashboardNav from "@/components/dashboard-nav"
-// import { Button } from "@/components/ui/button"
-
-// interface User {
-//   id: string
-//   name: string
-//   email: string
-//   createdAt: string
-// }
-
-// interface AnalysisResult {
-//   overallScore: number
-//   sections: {
-//     name: string
-//     score: number
-//     feedback: string
-//   }[]
-//   strengths: string[]
-//   improvements: string[]
-// }
-
-// export default function CVAnalysisPage() {
-//   const router = useRouter()
-//   const [user, setUser] = useState<User | null>(null)
-//   const [loading, setLoading] = useState(true)
-//   const [cvText, setCVText] = useState("")
-//   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
-//   const [analyzing, setAnalyzing] = useState(false)
-
-//   useEffect(() => {
-//     const userData = localStorage.getItem("cvmaster_user")
-//     if (!userData) {
-//       router.push("/login")
-//       return
-//     }
-//     setUser(JSON.parse(userData))
-//     setLoading(false)
-//   }, [router])
-
-//   const handleAnalyze = async () => {
-//     if (!cvText.trim()) {
-//       alert("Please paste your CV text")
-//       return
-//     }
-
-//     setAnalyzing(true)
-
-//     // Simulate AI analysis
-//     setTimeout(() => {
-//       const mockAnalysis: AnalysisResult = {
-//         overallScore: 78,
-//         sections: [
-//           {
-//             name: "Contact Information",
-//             score: 95,
-//             feedback: "Excellent - All necessary contact details are present",
-//           },
-//           {
-//             name: "Professional Summary",
-//             score: 72,
-//             feedback: "Good - Consider adding more specific achievements",
-//           },
-//           {
-//             name: "Work Experience",
-//             score: 85,
-//             feedback: "Strong - Good use of action verbs and metrics",
-//           },
-//           {
-//             name: "Education",
-//             score: 88,
-//             feedback: "Excellent - Well formatted and complete",
-//           },
-//           {
-//             name: "Skills",
-//             score: 65,
-//             feedback: "Fair - Add more technical skills and proficiency levels",
-//           },
-//         ],
-//         strengths: [
-//           "Clear and professional formatting",
-//           "Good use of quantifiable achievements",
-//           "Relevant work experience highlighted",
-//           "Proper chronological order",
-//         ],
-//         improvements: [
-//           "Add more specific metrics and results",
-//           "Include certifications and awards",
-//           "Expand technical skills section",
-//           "Add keywords relevant to target positions",
-//           "Consider adding a professional headline",
-//         ],
-//       }
-
-//       setAnalysis(mockAnalysis)
-//       setAnalyzing(false)
-//     }, 2000)
-//   }
-
-//   if (loading || !user) {
-//     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
-//   }
-
-//   return (
-//     <div className="min-h-screen bg-background">
-//       <DashboardNav user={user} />
-
-//       <main className="max-w-6xl mx-auto px-4 py-12">
-//         <div className="bg-white rounded-lg shadow-md p-8">
-//           <h1 className="text-3xl font-bold text-primary mb-2">CV Analysis</h1>
-//           <p className="text-muted-foreground mb-8">Get detailed analysis and improvement suggestions for your CV</p>
-
-//           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-//             {/* Input Section */}
-//             <div className="space-y-4">
-//               <h2 className="text-xl font-semibold text-primary">Paste Your CV</h2>
-//               <textarea
-//                 value={cvText}
-//                 onChange={(e) => setCVText(e.target.value)}
-//                 className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent h-96"
-//                 placeholder="Paste your CV text here..."
-//               />
-//               <Button onClick={handleAnalyze} disabled={analyzing} className="w-full bg-accent hover:bg-accent/90">
-//                 {analyzing ? "Analyzing..." : "Analyze CV"}
-//               </Button>
-//             </div>
-
-//             {/* Analysis Results */}
-//             {analysis && (
-//               <div className="space-y-4">
-//                 <h2 className="text-xl font-semibold text-primary">Analysis Results</h2>
-
-//                 {/* Overall Score */}
-//                 <div className="bg-gradient-to-r from-accent to-accent/80 text-white rounded-lg p-6 text-center">
-//                   <p className="text-sm font-medium mb-2">Overall CV Score</p>
-//                   <p className="text-5xl font-bold">{analysis.overallScore}%</p>
-//                 </div>
-
-//                 {/* Section Scores */}
-//                 <div className="space-y-3">
-//                   {analysis.sections.map((section, idx) => (
-//                     <div key={idx} className="border border-border rounded-lg p-3">
-//                       <div className="flex items-center justify-between mb-2">
-//                         <span className="font-medium text-foreground">{section.name}</span>
-//                         <span className="bg-accent text-white px-2 py-1 rounded text-sm font-bold">
-//                           {section.score}%
-//                         </span>
-//                       </div>
-//                       <div className="w-full bg-gray-200 rounded-full h-2">
-//                         <div className="bg-accent h-2 rounded-full" style={{ width: `${section.score}%` }} />
-//                       </div>
-//                       <p className="text-xs text-muted-foreground mt-2">{section.feedback}</p>
-//                     </div>
-//                   ))}
-//                 </div>
-//               </div>
-//             )}
-//           </div>
-
-//           {/* Strengths and Improvements */}
-//           {analysis && (
-//             <div className="mt-8 pt-8 border-t border-border grid grid-cols-1 md:grid-cols-2 gap-8">
-//               {/* Strengths */}
-//               <div>
-//                 <h3 className="text-lg font-semibold text-primary mb-4">Strengths</h3>
-//                 <div className="space-y-3">
-//                   {analysis.strengths.map((strength, idx) => (
-//                     <div key={idx} className="flex gap-3">
-//                       <span className="text-green-500 font-bold">✓</span>
-//                       <p className="text-foreground">{strength}</p>
-//                     </div>
-//                   ))}
-//                 </div>
-//               </div>
-
-//               {/* Improvements */}
-//               <div>
-//                 <h3 className="text-lg font-semibold text-primary mb-4">Areas for Improvement</h3>
-//                 <div className="space-y-3">
-//                   {analysis.improvements.map((improvement, idx) => (
-//                     <div key={idx} className="flex gap-3">
-//                       <span className="text-orange-500 font-bold">→</span>
-//                       <p className="text-foreground">{improvement}</p>
-//                     </div>
-//                   ))}
-//                 </div>
-//               </div>
-//             </div>
-//           )}
-
-//           {/* Action Buttons */}
-//           <div className="flex gap-4 mt-8 pt-8 border-t border-border">
-//             <Button onClick={() => router.push("/enhance-cv")} className="flex-1 bg-accent hover:bg-accent/90">
-//               Enhance CV
-//             </Button>
-//             <Button onClick={() => router.push("/dashboard")} variant="outline" className="flex-1">
-//               Back to Dashboard
-//             </Button>
-//           </div>
-//         </div>
-//       </main>
-//     </div>
-//   )
-// }
-
-// ===============================================
-
 "use client"
 
 import type React from "react"
@@ -246,7 +36,7 @@ interface AnalysisResult {
   suggestions: Suggestion[]
 }
 
-export default function CVAnalysisPage() {
+export default function CVAnalysisProPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -313,7 +103,7 @@ export default function CVAnalysisPage() {
         overallScore: result.analysis.overallScore,
         sections: [
           {
-            name: "Contact Information",
+            name: "Contact Information (Pro)",
             score: [result.extractedInfo.email, result.extractedInfo.phone, result.extractedInfo.name].filter(Boolean)
               .length >= 2
               ? 90
@@ -324,7 +114,7 @@ export default function CVAnalysisPage() {
                 : "Excellent - All necessary contact details are present",
           },
           {
-            name: "Professional Summary",
+            name: "Professional Summary (Pro)",
             score: Math.min(95, Math.max(50, Math.round(result.summary.split(" ").length / 2))),
             feedback:
               result.summary.length > 20
@@ -332,7 +122,7 @@ export default function CVAnalysisPage() {
                 : "Add a concise professional summary",
           },
           {
-            name: "Work Experience",
+            name: "Work Experience (Pro)",
             score: Math.min(95, Math.max(50, result.extractedInfo.experience.length * 20)),
             feedback:
               result.extractedInfo.experience.length > 1
@@ -340,7 +130,7 @@ export default function CVAnalysisPage() {
                 : "Add more detail and quantified achievements",
           },
           {
-            name: "Education",
+            name: "Education (Pro)",
             score: Math.min(95, Math.max(50, result.extractedInfo.education.length * 30)),
             feedback:
               result.extractedInfo.education.length > 0
@@ -348,7 +138,7 @@ export default function CVAnalysisPage() {
                 : "Add degree, institution, and graduation year",
           },
           {
-            name: "Skills",
+            name: "Skills (Pro)",
             score: Math.min(95, Math.max(40, result.extractedInfo.skills.length * 5)),
             feedback:
               result.extractedInfo.skills.length > 8
@@ -389,7 +179,7 @@ export default function CVAnalysisPage() {
         {/* Header Section */}
         <div className="flex flex-wrap justify-between gap-3 mb-8">
           <div className="flex flex-col gap-3">
-            <h1 className="text-4xl font-black text-gray-900 dark:text-white">Optimize Your CV with AI</h1>
+            <h1 className="text-4xl font-black text-gray-900 dark:text-white">CV Analysis Pro</h1>
             <p className="text-purple-600 dark:text-purple-400 text-base font-normal">
               Upload your CV to get started. Supported file types: PDF, DOCX.
             </p>
@@ -443,7 +233,7 @@ export default function CVAnalysisPage() {
           <div className="flex flex-col gap-8">
             {/* CV Strength Score */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-              <p className="text-lg font-bold mb-4 text-gray-900 dark:text-white">CV Strength Score</p>
+              <p className="text-lg font-bold mb-4 text-gray-900 dark:text-white">CV Strength Score (Pro)</p>
               <div className="relative w-40 h-40 mx-auto">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                   <circle
@@ -493,7 +283,7 @@ export default function CVAnalysisPage() {
               disabled={analyzing || !file}
               className="w-full bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white font-bold h-10"
             >
-              {analyzing ? "Analyzing..." : "Analyze CV"}
+              {analyzing ? "Analyzing..." : "Analyze CV (Pro)"}
             </Button>
           </div>
         </div>
@@ -625,4 +415,3 @@ export default function CVAnalysisPage() {
     </div>
   )
 }
-
