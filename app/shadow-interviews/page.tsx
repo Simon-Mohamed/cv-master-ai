@@ -347,7 +347,13 @@ export default function InterviewPractice() {
           >
             Shadow Interviews
           </a>
-          <Button className="bg-primary text-white">My Profile</Button>
+          <a
+            href="/profile"
+            className="text-sm font-medium text-muted-foreground hover:text-primary transition"
+          >
+            My Profile
+          </a>
+          {/* <Button className="bg-primary text-white">My Profile</Button> */}
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-500"></div>
         </div>
       </header>
