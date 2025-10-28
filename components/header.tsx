@@ -79,7 +79,7 @@ export default function Header() {
               <Link href="/job-search" className="text-foreground hover:text-primary transition">
                 Job Search
               </Link>
-              <Link href="/cv-analysis" className="text-foreground hover:text-primary transition">
+              <Link href="/cv-analysis-pro" className="text-foreground hover:text-primary transition">
                 CV Analysis
               </Link>
             </>

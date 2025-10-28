@@ -253,6 +253,7 @@ const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
             </Button>
           </div>
         </div>
+        </main>
 
         {/* Info sections */}
         <div className="grid gap-6">
@@ -403,6 +404,54 @@ const handleAddSkill = async (e: React.FormEvent<HTMLFormElement>) => {
             </div>
           )}
         </div>
+          {/* AI Tools Card */}
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl hover:shadow-xl transition-shadow duration-300">
+            <h2 className="text-xl font-bold text-white mb-6">AI Tools</h2>
+            <div className="space-y-5">
+              <Link href="/cv-analysis-pro">
+                <div className="flex items-start gap-4 group cursor-pointer">
+                  <div className="flex-shrink-0 size-12 bg-purple-500/20 text-purple-400 rounded-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                    <TrendingUp size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white group-hover:text-purple-300 transition">CV Analyzer</h3>
+                    <p className="text-sm text-white/60">Get AI feedback on your CV</p>
+                  </div>
+                </div>
+              </Link>
+              <Link href="/shadow-interviews">
+                <div className="flex items-start gap-4 group cursor-pointer">
+                  <div className="flex-shrink-0 size-12 bg-purple-500/20 text-purple-400 rounded-lg flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                    <Zap size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white group-hover:text-purple-300 transition">Interview Simulator</h3>
+                    <p className="text-sm text-white/60">Practice with AI-powered interviews</p>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        {editing && (
+          <div className="flex gap-4 justify-end">
+            <Button
+              onClick={handleSave}
+              className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-8 py-3 rounded-lg font-semibold transition shadow-lg"
+            >
+              <Save size={18} /> Save Changes
+            </Button>
+            <Button
+              onClick={() => setEditing(false)}
+              variant="outline"
+              className="px-8 py-3 rounded-lg font-semibold border-white/20 text-white hover:bg-white/10 transition"
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
       </main>
     </div>
   );
