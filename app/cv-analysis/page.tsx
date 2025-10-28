@@ -216,6 +216,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import DashboardNav from "@/components/dashboard-nav"
 import { Button } from "@/components/ui/button"
+import { cvAnalysisService, type CVAnalysisResult } from "@/lib/cv-analysis-service"
 
 interface User {
   id: string
@@ -306,99 +307,72 @@ export default function CVAnalysisPage() {
     }
 
     setAnalyzing(true)
-
-    // Simulate AI analysis
-    setTimeout(() => {
-      const mockAnalysis: AnalysisResult = {
-        overallScore: 75,
+    try {
+      const result: CVAnalysisResult = await cvAnalysisService.analyzeCV(file)
+      const mapped: AnalysisResult = {
+        overallScore: result.analysis.overallScore,
         sections: [
           {
             name: "Contact Information",
-            score: 95,
-            feedback: "Excellent - All necessary contact details are present",
+            score: [result.extractedInfo.email, result.extractedInfo.phone, result.extractedInfo.name].filter(Boolean)
+              .length >= 2
+              ? 90
+              : 60,
+            feedback:
+              !result.extractedInfo.email || !result.extractedInfo.phone
+                ? "Add a professional email and phone number"
+                : "Excellent - All necessary contact details are present",
           },
           {
             name: "Professional Summary",
-            score: 72,
-            feedback: "Good - Consider adding more specific achievements",
+            score: Math.min(95, Math.max(50, Math.round(result.summary.split(" ").length / 2))),
+            feedback:
+              result.summary.length > 20
+                ? "Good - Consider adding more specific achievements"
+                : "Add a concise professional summary",
           },
           {
             name: "Work Experience",
-            score: 85,
-            feedback: "Strong - Good use of action verbs and metrics",
+            score: Math.min(95, Math.max(50, result.extractedInfo.experience.length * 20)),
+            feedback:
+              result.extractedInfo.experience.length > 1
+                ? "Strong - Good breadth of experience"
+                : "Add more detail and quantified achievements",
           },
           {
             name: "Education",
-            score: 88,
-            feedback: "Excellent - Well formatted and complete",
+            score: Math.min(95, Math.max(50, result.extractedInfo.education.length * 30)),
+            feedback:
+              result.extractedInfo.education.length > 0
+                ? "Educational background clearly stated"
+                : "Add degree, institution, and graduation year",
           },
           {
             name: "Skills",
-            score: 65,
-            feedback: "Fair - Add more technical skills and proficiency levels",
+            score: Math.min(95, Math.max(40, result.extractedInfo.skills.length * 5)),
+            feedback:
+              result.extractedInfo.skills.length > 8
+                ? "Comprehensive technical skill set"
+                : "Add more relevant technical skills and tools",
           },
         ],
-        strengths: [
-          "Clear and professional formatting",
-          "Good use of quantifiable achievements",
-          "Relevant work experience highlighted",
-          "Proper chronological order",
-        ],
-        improvements: [
-          "Add more specific metrics and results",
-          "Include certifications and awards",
-          "Expand technical skills section",
-          "Add keywords relevant to target positions",
-          "Consider adding a professional headline",
-        ],
-        suggestions: [
-          {
-            id: "1",
-            title: "Add Industry-Specific Keywords",
-            description:
-              "Including keywords like 'Agile' and 'Scrum' will help your CV pass automated screening systems.",
-            category: "keywords",
-            severity: "info",
-            actionText: "Add 'Agile'",
-          },
-          {
-            id: "2",
-            title: "Quantify Your Achievements",
-            description: "Use numbers to show impact. e.g., 'Managed a team' to 'Managed a team of 5'.",
-            category: "keywords",
-            severity: "warning",
-            actionText: "See Example",
-          },
-          {
-            id: "3",
-            title: "Use Stronger Action Verbs",
-            description: "Replace 'Helped' with more dynamic verbs like 'Orchestrated' or 'Spearheaded'.",
-            category: "verbs",
-            severity: "info",
-            actionText: "Replace 'Helped'",
-          },
-          {
-            id: "4",
-            title: "Improve Formatting Consistency",
-            description: "Ensure consistent date formatting and bullet point styles throughout your CV.",
-            category: "formatting",
-            severity: "info",
-            actionText: "Fix Formatting",
-          },
-          {
-            id: "5",
-            title: "Add Missing Certifications",
-            description: "Include relevant professional certifications to strengthen your profile.",
-            category: "gaps",
-            severity: "warning",
-            actionText: "Add Certifications",
-          },
-        ],
+        strengths: result.analysis.strengths,
+        improvements: result.analysis.weaknesses,
+        suggestions: (result.analysis.suggestions || []).slice(0, 5).map((s, idx) => ({
+          id: String(idx + 1),
+          title: s,
+          description: s,
+          category: (idx % 4 === 0 ? "keywords" : idx % 4 === 1 ? "formatting" : idx % 4 === 2 ? "verbs" : "gaps"),
+          severity: idx % 3 === 0 ? "warning" : "info",
+          actionText: "Apply",
+        })),
       }
-
-      setAnalysis(mockAnalysis)
+      setAnalysis(mapped)
+    } catch (e: any) {
+      alert(e?.message || "Failed to analyze CV. Please try again.")
+    } finally {
       setAnalyzing(false)
-    }, 2000)
+    }
   }
 
   if (loading || !user) {
