@@ -34,7 +34,6 @@ export default function AdminDashboard() {
             : companiesRes.data
         );
         setJobs(Array.isArray(jobsRes.data.data) ? jobsRes.data.data : []);
-
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
