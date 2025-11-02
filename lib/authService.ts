@@ -279,6 +279,35 @@ export const authService = {
     });
     return res.data;
   },
+ 
+// ✅ Add new user
+addUser: async (userData: any) => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    throw new Error("Authentication token is missing.");
+  }
+
+  try {
+    const res = await axios.post(`${API_URL}/admin/users`, userData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+
+    return res.data;
+ } catch (error: any) {
+  // ✅ تأمين ضد undefined
+  const message =
+    error?.response?.data?.message ||
+    error?.message ||
+    "Failed to add user. Please try again.";
+
+  console.error("Error adding user:", error?.response?.data || message);
+  throw new Error(message);
+}
+},
 
   updateJob: async (id: number, data: any) => {
     const token = localStorage.getItem("token");
