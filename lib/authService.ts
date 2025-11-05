@@ -213,13 +213,70 @@ updateUser: async (id: number, data: any) => {
   },
 
   // ----- JOBS -----
-  getAllJobs: async () => {
-    const token = localStorage.getItem("token");
-    const res = await axios.get(`${API_URL}/admin/jobs`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  // getAllJobs: async () => {
+  //   const token = localStorage.getItem("token");
+  //   // console.log(token);
+    
+  //   const res = await axios.get(`${API_URL}/jobs`, {
+  //     headers: { Authorization: `Bearer ${token}` },
+  //   });
+  //   return res.data;
+  // },
+//   getAllJobs: async () => {
+//   const res = await axios.get(`${API_URL}/jobs`);
+//   console.log(res);
+  
+//   return res.data;
+// },
+getAllJobs: async () => {
+  const token = localStorage.getItem("token");
+  const res = await axios.get(`${API_URL}/jobs`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res;
+},
+
+  // ============================
+// 🔹 JOBS (For Users)
+// ============================
+applyToJob: async (jobId: number, formData: FormData) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Authentication token is missing.");
+
+  try {
+    const res = await axios.post(
+      `${API_URL}/jobs/${jobId}/apply`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
     return res.data;
-  },
+  } catch (error: any) {
+    console.error("Error applying for job:", error.response?.data || error.message);
+    throw (
+      error.response?.data?.message ||
+      "Failed to apply for the job. Please try again."
+    );
+  }
+},
+
+// getAllJobs: async () => {
+//   try {
+//     const res = await axios.get(`${API_URL}/jobs`);
+//     return res.data;
+//   } catch (error: any) {
+//     console.error("Error fetching jobs:", error.response?.data || error.message);
+//     throw (
+//       error.response?.data?.message ||
+//       "Failed to fetch jobs. Please try again."
+//     );
+//   }
+// },
+
 
   createJob: async (jobData: any) => {
     const token = localStorage.getItem("token");

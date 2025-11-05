@@ -4,88 +4,34 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import DashboardNav from "@/components/dashboard-nav";
 import { Button } from "@/components/ui/button";
+import { authService } from "@/lib/authService"; // أو حسب مكان الملف عندك
 
 interface User {
   id: number;
   name: string;
   email: string;
-  createdAt: string;
 }
 
 interface Job {
-  id: string;
+  id: number;
   title: string;
   company: string;
   location: string;
   salary: string;
   description: string;
   requirements: string[];
-  matchScore: number;
 }
-
-const MOCK_JOBS: Job[] = [
-  {
-    id: "1",
-    title: "Senior React Developer",
-    company: "Tech Corp",
-    location: "San Francisco, CA",
-    salary: "$120,000 - $160,000",
-    description:
-      "We are looking for an experienced React developer to join our team.",
-    requirements: ["React", "JavaScript", "Node.js", "5+ years experience"],
-    matchScore: 92,
-  },
-  {
-    id: "2",
-    title: "Full Stack Developer",
-    company: "StartUp Inc",
-    location: "Remote",
-    salary: "$100,000 - $140,000",
-    description: "Join our growing startup as a full stack developer.",
-    requirements: ["React", "Node.js", "MongoDB", "AWS"],
-    matchScore: 85,
-  },
-  {
-    id: "3",
-    title: "Frontend Engineer",
-    company: "Design Studio",
-    location: "New York, NY",
-    salary: "$110,000 - $150,000",
-    description: "Create beautiful user interfaces for our clients.",
-    requirements: ["React", "CSS", "TypeScript", "Figma"],
-    matchScore: 78,
-  },
-  {
-    id: "4",
-    title: "JavaScript Developer",
-    company: "Web Solutions",
-    location: "Boston, MA",
-    salary: "$90,000 - $130,000",
-    description: "Build scalable web applications.",
-    requirements: ["JavaScript", "React", "REST APIs"],
-    matchScore: 88,
-  },
-  {
-    id: "5",
-    title: "UI/UX Developer",
-    company: "Creative Agency",
-    location: "Los Angeles, CA",
-    salary: "$95,000 - $135,000",
-    description: "Develop responsive and accessible user interfaces.",
-    requirements: ["React", "CSS", "Accessibility", "Design Systems"],
-    matchScore: 81,
-  },
-];
 
 export default function JobSearchPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [jobs, setJobs] = useState<Job[]>(MOCK_JOBS);
-  const [filteredJobs, setFilteredJobs] = useState<Job[]>(MOCK_JOBS);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [savedJobs, setSavedJobs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [applyingJobId, setApplyingJobId] = useState<number | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("cvmaster_user");
@@ -96,12 +42,43 @@ export default function JobSearchPage() {
     setUser(JSON.parse(userData));
 
     const saved = localStorage.getItem("cvmaster_saved_jobs");
-    if (saved) {
-      setSavedJobs(JSON.parse(saved));
-    }
-    setLoading(false);
-  }, [router]);
+    if (saved) setSavedJobs(JSON.parse(saved));
 
+    fetchJobs();
+  }, []);
+
+const fetchJobs = async () => {
+  try {
+    const res = await authService.getAllJobs();
+    console.log("Jobs API response:", res);
+
+    // ✅ هنا بناخد الداتا من res.data.data حسب شكل الـ API
+    const jobsArray = res.data?.data || [];
+
+    // نحولها لشكل بسيط يناسب الواجهة
+    const formattedJobs = jobsArray.map((job: any) => ({
+      id: job.id,
+      title: job.title,
+      company: job.company?.name || "Unknown Company",
+      location: job.location,
+      salary: `${job.salary_from} - ${job.salary_to}`,
+      description: job.description,
+      requirements: job.requirements
+        ? job.requirements.split(",").map((r: string) => r.trim())
+        : [],
+    }));
+
+    setJobs(formattedJobs);
+    setFilteredJobs(formattedJobs);
+  } catch (err) {
+    console.error("Error fetching jobs:", err);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  // ✅ فلترة الوظائف حسب العنوان والموقع
   useEffect(() => {
     let filtered = jobs;
 
@@ -119,28 +96,56 @@ export default function JobSearchPage() {
       );
     }
 
-    setFilteredJobs(filtered.sort((a, b) => b.matchScore - a.matchScore));
+    setFilteredJobs(filtered);
   }, [searchTerm, locationFilter, jobs]);
 
-  const toggleSaveJob = (jobId: string) => {
-    const updated = savedJobs.includes(jobId)
-      ? savedJobs.filter((id) => id !== jobId)
-      : [...savedJobs, jobId];
+  // ✅ حفظ وظيفة
+  const toggleSaveJob = (jobId: number) => {
+    const updated = savedJobs.includes(String(jobId))
+      ? savedJobs.filter((id) => id !== String(jobId))
+      : [...savedJobs, String(jobId)];
     setSavedJobs(updated);
     localStorage.setItem("cvmaster_saved_jobs", JSON.stringify(updated));
   };
 
-  if (loading || !user) {
+  // ✅ التقديم على وظيفة
+  const handleApply = async (jobId: number) => {
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = ".pdf,.doc,.docx";
+
+    fileInput.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("cv", file);
+
+      try {
+        setApplyingJobId(jobId);
+        const res = await authService.applyToJob(jobId, formData);
+        alert(res.message || "Application submitted successfully!");
+      } catch (err: any) {
+        alert(err.message || "Failed to apply for this job.");
+      } finally {
+        setApplyingJobId(null);
+      }
+    };
+
+    fileInput.click();
+  };
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        Loading...
+        Loading jobs...
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardNav user={user} />
+      <DashboardNav user={user!} />
 
       <main className="max-w-6xl mx-auto px-4 py-12">
         <div className="bg-white rounded-lg shadow-md p-8">
@@ -149,7 +154,7 @@ export default function JobSearchPage() {
             Find jobs matched to your skills and experience
           </p>
 
-          {/* Filters */}
+          {/* 🔹 Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
@@ -172,12 +177,12 @@ export default function JobSearchPage() {
                 value={locationFilter}
                 onChange={(e) => setLocationFilter(e.target.value)}
                 className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
-                placeholder="e.g., Remote, San Francisco"
+                placeholder="e.g., Remote, Cairo"
               />
             </div>
           </div>
 
-          {/* Jobs List */}
+          {/* 🔹 Jobs List */}
           <div className="space-y-4">
             {filteredJobs.length > 0 ? (
               filteredJobs.map((job) => (
@@ -193,13 +198,10 @@ export default function JobSearchPage() {
                       <p className="text-muted-foreground">{job.company}</p>
                     </div>
                     <div className="text-right">
-                      <div className="bg-accent text-white px-3 py-1 rounded-full text-sm font-bold mb-2">
-                        {job.matchScore}% Match
-                      </div>
                       <button
                         onClick={() => toggleSaveJob(job.id)}
                         className={`text-2xl ${
-                          savedJobs.includes(job.id)
+                          savedJobs.includes(String(job.id))
                             ? "text-accent"
                             : "text-gray-300"
                         }`}
@@ -231,7 +233,7 @@ export default function JobSearchPage() {
                       Requirements:
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {job.requirements.map((req, idx) => (
+                      {job.requirements?.map((req, idx) => (
                         <span
                           key={idx}
                           className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
@@ -242,8 +244,12 @@ export default function JobSearchPage() {
                     </div>
                   </div>
 
-                  <Button className="bg-accent hover:bg-accent/90">
-                    Apply Now
+                  <Button
+                    onClick={() => handleApply(job.id)}
+                    disabled={applyingJobId === job.id}
+                    className="bg-accent hover:bg-accent/90"
+                  >
+                    {applyingJobId === job.id ? "Applying..." : "Apply Now"}
                   </Button>
                 </div>
               ))
