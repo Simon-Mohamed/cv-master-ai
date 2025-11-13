@@ -1,113 +1,123 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import DashboardNav from "@/components/dashboard-nav"
-import { Button } from "@/components/ui/button"
-import { cvAnalysisService, type CVAnalysisResult } from "@/lib/cv-analysis-service"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import DashboardNav from "@/components/dashboard-nav";
+import { Button } from "@/components/ui/button";
+import {
+  cvAnalysisService,
+  type CVAnalysisResult,
+} from "@/lib/cv-analysis-service";
 
 interface User {
-  id: string
-  name: string
-  email: string
-  createdAt: string
+  id: number;
+  name: string;
+  email: string;
+  createdAt: string;
 }
 
 interface Suggestion {
-  id: string
-  title: string
-  description: string
-  category: "keywords" | "formatting" | "verbs" | "gaps"
-  severity: "info" | "warning"
-  actionText: string
+  id: string;
+  title: string;
+  description: string;
+  category: "keywords" | "formatting" | "verbs" | "gaps";
+  severity: "info" | "warning";
+  actionText: string;
 }
 
 interface AnalysisResult {
-  overallScore: number
+  overallScore: number;
   sections: {
-    name: string
-    score: number
-    feedback: string
-  }[]
-  strengths: string[]
-  improvements: string[]
-  suggestions: Suggestion[]
+    name: string;
+    score: number;
+    feedback: string;
+  }[];
+  strengths: string[];
+  improvements: string[];
+  suggestions: Suggestion[];
 }
 
 export default function CVAnalysisProPage() {
-  const router = useRouter()
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [file, setFile] = useState<File | null>(null)
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [activeTab, setActiveTab] = useState<"keywords" | "formatting" | "verbs" | "gaps">("keywords")
-  const [dragActive, setDragActive] = useState(false)
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [file, setFile] = useState<File | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [activeTab, setActiveTab] = useState<
+    "keywords" | "formatting" | "verbs" | "gaps"
+  >("keywords");
+  const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => {
-    const userData = localStorage.getItem("cvmaster_user")
+    const userData = localStorage.getItem("cvmaster_user");
     if (!userData) {
-      router.push("/login")
-      return
+      router.push("/login");
+      return;
     }
-    setUser(JSON.parse(userData))
-    setLoading(false)
-  }, [router])
+    setUser(JSON.parse(userData));
+    setLoading(false);
+  }, [router]);
 
   const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
+      setDragActive(true);
     } else if (e.type === "dragleave") {
-      setDragActive(false)
+      setDragActive(false);
     }
-  }
+  };
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0]
+      const droppedFile = e.dataTransfer.files[0];
       if (
         droppedFile.type === "application/pdf" ||
-        droppedFile.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        droppedFile.type ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       ) {
-        setFile(droppedFile)
+        setFile(droppedFile);
       } else {
-        alert("Please upload a PDF or DOCX file")
+        alert("Please upload a PDF or DOCX file");
       }
     }
-  }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0])
+      setFile(e.target.files[0]);
     }
-  }
+  };
 
   const handleAnalyze = async () => {
     if (!file) {
-      alert("Please upload a CV file")
-      return
+      alert("Please upload a CV file");
+      return;
     }
 
-    setAnalyzing(true)
+    setAnalyzing(true);
     try {
-      const result: CVAnalysisResult = await cvAnalysisService.analyzeCV(file)
+      const result: CVAnalysisResult = await cvAnalysisService.analyzeCV(file);
       const mapped: AnalysisResult = {
         overallScore: result.analysis.overallScore,
         sections: [
           {
             name: "Contact Information (Pro)",
-            score: [result.extractedInfo.email, result.extractedInfo.phone, result.extractedInfo.name].filter(Boolean)
-              .length >= 2
-              ? 90
-              : 60,
+            score:
+              [
+                result.extractedInfo.email,
+                result.extractedInfo.phone,
+                result.extractedInfo.name,
+              ].filter(Boolean).length >= 2
+                ? 90
+                : 60,
             feedback:
               !result.extractedInfo.email || !result.extractedInfo.phone
                 ? "Add a professional email and phone number"
@@ -115,7 +125,10 @@ export default function CVAnalysisProPage() {
           },
           {
             name: "Professional Summary (Pro)",
-            score: Math.min(95, Math.max(50, Math.round(result.summary.split(" ").length / 2))),
+            score: Math.min(
+              95,
+              Math.max(50, Math.round(result.summary.split(" ").length / 2))
+            ),
             feedback:
               result.summary.length > 20
                 ? "Good - Consider adding more specific achievements"
@@ -123,7 +136,10 @@ export default function CVAnalysisProPage() {
           },
           {
             name: "Work Experience (Pro)",
-            score: Math.min(95, Math.max(50, result.extractedInfo.experience.length * 20)),
+            score: Math.min(
+              95,
+              Math.max(50, result.extractedInfo.experience.length * 20)
+            ),
             feedback:
               result.extractedInfo.experience.length > 1
                 ? "Strong - Good breadth of experience"
@@ -131,7 +147,10 @@ export default function CVAnalysisProPage() {
           },
           {
             name: "Education (Pro)",
-            score: Math.min(95, Math.max(50, result.extractedInfo.education.length * 30)),
+            score: Math.min(
+              95,
+              Math.max(50, result.extractedInfo.education.length * 30)
+            ),
             feedback:
               result.extractedInfo.education.length > 0
                 ? "Educational background clearly stated"
@@ -139,7 +158,10 @@ export default function CVAnalysisProPage() {
           },
           {
             name: "Skills (Pro)",
-            score: Math.min(95, Math.max(40, result.extractedInfo.skills.length * 5)),
+            score: Math.min(
+              95,
+              Math.max(40, result.extractedInfo.skills.length * 5)
+            ),
             feedback:
               result.extractedInfo.skills.length > 8
                 ? "Comprehensive technical skill set"
@@ -148,28 +170,42 @@ export default function CVAnalysisProPage() {
         ],
         strengths: result.analysis.strengths,
         improvements: result.analysis.weaknesses,
-        suggestions: (result.analysis.suggestions || []).slice(0, 5).map((s, idx) => ({
-          id: String(idx + 1),
-          title: s,
-          description: s,
-          category: (idx % 4 === 0 ? "keywords" : idx % 4 === 1 ? "formatting" : idx % 4 === 2 ? "verbs" : "gaps"),
-          severity: idx % 3 === 0 ? "warning" : "info",
-          actionText: "Apply",
-        })),
-      }
-      setAnalysis(mapped)
+        suggestions: (result.analysis.suggestions || [])
+          .slice(0, 5)
+          .map((s, idx) => ({
+            id: String(idx + 1),
+            title: s,
+            description: s,
+            category:
+              idx % 4 === 0
+                ? "keywords"
+                : idx % 4 === 1
+                ? "formatting"
+                : idx % 4 === 2
+                ? "verbs"
+                : "gaps",
+            severity: idx % 3 === 0 ? "warning" : "info",
+            actionText: "Apply",
+          })),
+      };
+      setAnalysis(mapped);
     } catch (e: any) {
-      alert(e?.message || "Failed to analyze CV. Please try again.")
+      alert(e?.message || "Failed to analyze CV. Please try again.");
     } finally {
-      setAnalyzing(false)
+      setAnalyzing(false);
     }
-  }
+  };
 
   if (loading || !user) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    );
   }
 
-  const filteredSuggestions = analysis?.suggestions.filter((s) => s.category === activeTab) || []
+  const filteredSuggestions =
+    analysis?.suggestions.filter((s) => s.category === activeTab) || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
@@ -179,7 +215,9 @@ export default function CVAnalysisProPage() {
         {/* Header Section */}
         <div className="flex flex-wrap justify-between gap-3 mb-8">
           <div className="flex flex-col gap-3">
-            <h1 className="text-4xl font-black text-gray-900 dark:text-white">CV Analysis Pro</h1>
+            <h1 className="text-4xl font-black text-gray-900 dark:text-white">
+              CV Analysis Pro
+            </h1>
             <p className="text-purple-600 dark:text-purple-400 text-base font-normal">
               Upload your CV to get started. Supported file types: PDF, DOCX.
             </p>
@@ -223,7 +261,12 @@ export default function CVAnalysisProPage() {
                 </p>
                 <label className="mt-6 flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-purple-500/20 dark:bg-purple-500/40 text-purple-600 dark:text-purple-300 text-sm font-bold leading-normal tracking-[0.015em] hover:bg-purple-500/30 transition-colors">
                   <span className="truncate">Upload CV</span>
-                  <input type="file" accept=".pdf,.docx" onChange={handleFileChange} className="hidden" />
+                  <input
+                    type="file"
+                    accept=".pdf,.docx"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
                 </label>
               </div>
             </div>
@@ -233,9 +276,14 @@ export default function CVAnalysisProPage() {
           <div className="flex flex-col gap-8">
             {/* CV Strength Score */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-              <p className="text-lg font-bold mb-4 text-gray-900 dark:text-white">CV Strength Score (Pro)</p>
+              <p className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+                CV Strength Score (Pro)
+              </p>
               <div className="relative w-40 h-40 mx-auto">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <svg
+                  className="w-full h-full transform -rotate-90"
+                  viewBox="0 0 36 36"
+                >
                   <circle
                     cx="18"
                     cy="18"
@@ -252,7 +300,9 @@ export default function CVAnalysisProPage() {
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="3"
-                    strokeDasharray={`${analysis ? (analysis.overallScore / 100) * 100 : 0}, 100`}
+                    strokeDasharray={`${
+                      analysis ? (analysis.overallScore / 100) * 100 : 0
+                    }, 100`}
                     strokeLinecap="round"
                     className="text-purple-600 dark:text-purple-400 transition-all duration-500"
                   />
@@ -265,8 +315,12 @@ export default function CVAnalysisProPage() {
               </div>
               <div className="mt-4">
                 <div className="flex gap-6 justify-between">
-                  <p className="text-gray-800 dark:text-gray-200 text-base font-medium">Overall Score</p>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm font-normal">{analysis?.overallScore || 0}%</p>
+                  <p className="text-gray-800 dark:text-gray-200 text-base font-medium">
+                    Overall Score
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm font-normal">
+                    {analysis?.overallScore || 0}%
+                  </p>
                 </div>
                 <div className="rounded bg-purple-200 dark:bg-purple-900/30 mt-2">
                   <div
@@ -293,7 +347,9 @@ export default function CVAnalysisProPage() {
           <div className="mt-8">
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">AI Suggestions</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  AI Suggestions
+                </h3>
                 <button className="text-sm font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700">
                   Apply All
                 </button>
@@ -301,22 +357,24 @@ export default function CVAnalysisProPage() {
 
               {/* Tab Buttons */}
               <div className="flex h-10 w-full items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/30 p-1 mb-6 gap-1">
-                {(["keywords", "formatting", "verbs", "gaps"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 h-full rounded-lg px-2 text-sm font-medium transition-all ${
-                      activeTab === tab
-                        ? "bg-white dark:bg-slate-800 shadow-sm text-purple-600 dark:text-purple-400"
-                        : "text-purple-600/70 dark:text-purple-400/70 hover:text-purple-600 dark:hover:text-purple-400"
-                    }`}
-                  >
-                    {tab === "keywords" && "Keywords"}
-                    {tab === "formatting" && "Formatting"}
-                    {tab === "verbs" && "Verbs"}
-                    {tab === "gaps" && "Gaps"}
-                  </button>
-                ))}
+                {(["keywords", "formatting", "verbs", "gaps"] as const).map(
+                  (tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`flex-1 h-full rounded-lg px-2 text-sm font-medium transition-all ${
+                        activeTab === tab
+                          ? "bg-white dark:bg-slate-800 shadow-sm text-purple-600 dark:text-purple-400"
+                          : "text-purple-600/70 dark:text-purple-400/70 hover:text-purple-600 dark:hover:text-purple-400"
+                      }`}
+                    >
+                      {tab === "keywords" && "Keywords"}
+                      {tab === "formatting" && "Formatting"}
+                      {tab === "verbs" && "Verbs"}
+                      {tab === "gaps" && "Gaps"}
+                    </button>
+                  )
+                )}
               </div>
 
               {/* Suggestions List */}
@@ -333,11 +391,19 @@ export default function CVAnalysisProPage() {
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-bold text-gray-900 dark:text-white">{suggestion.title}</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{suggestion.description}</p>
+                          <h4 className="font-bold text-gray-900 dark:text-white">
+                            {suggestion.title}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {suggestion.description}
+                          </p>
                         </div>
                         <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <svg
+                            className="w-5 h-5"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
                             <path
                               fillRule="evenodd"
                               d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
@@ -357,7 +423,9 @@ export default function CVAnalysisProPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-center text-gray-600 dark:text-gray-400 py-8">No suggestions in this category</p>
+                  <p className="text-center text-gray-600 dark:text-gray-400 py-8">
+                    No suggestions in this category
+                  </p>
                 )}
               </div>
             </div>
@@ -369,12 +437,16 @@ export default function CVAnalysisProPage() {
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Strengths */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Strengths</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                Strengths
+              </h3>
               <div className="space-y-3">
                 {analysis.strengths.map((strength, idx) => (
                   <div key={idx} className="flex gap-3">
                     <span className="text-green-500 font-bold text-lg">✓</span>
-                    <p className="text-gray-700 dark:text-gray-300">{strength}</p>
+                    <p className="text-gray-700 dark:text-gray-300">
+                      {strength}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -382,12 +454,16 @@ export default function CVAnalysisProPage() {
 
             {/* Improvements */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Areas for Improvement</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                Areas for Improvement
+              </h3>
               <div className="space-y-3">
                 {analysis.improvements.map((improvement, idx) => (
                   <div key={idx} className="flex gap-3">
                     <span className="text-orange-500 font-bold text-lg">→</span>
-                    <p className="text-gray-700 dark:text-gray-300">{improvement}</p>
+                    <p className="text-gray-700 dark:text-gray-300">
+                      {improvement}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -413,5 +489,5 @@ export default function CVAnalysisProPage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

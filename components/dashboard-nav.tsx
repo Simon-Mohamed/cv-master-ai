@@ -5,9 +5,10 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
 interface User {
-  id?: number
+id?: number
   name?: string
   email?: string
+  role?: string
   created_at?: string
 }
 
@@ -22,15 +23,20 @@ export default function DashboardNav({ user }: { user: User }) {
   return (
     <nav className="bg-primary text-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-        <Link href="/dashboard" className="text-2xl font-bold">
+        <Link href="/" className="text-2xl font-bold">
           CV Master AI
         </Link>
 
         <div className="flex items-center gap-6">
           <div className="hidden md:flex gap-4">
-            <Link href="/dashboard" className="hover:text-accent transition">
+            {user.role !== 'user' && (
+ <Link href="/dashboard" className="hover:text-accent transition">
+ Dashboard
+ </Link>
+ )}
+            {/* <Link href="/dashboard" className="hover:text-accent transition">
               Dashboard
-            </Link>
+            </Link> */}
             <Link href="/profile" className="hover:text-accent transition">
               Profile
             </Link>
