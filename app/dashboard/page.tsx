@@ -2,8 +2,13 @@
 import { useEffect, useState } from "react";
 import { authService } from "@/lib/authService";
 import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+// import router from "next/router";
+
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
@@ -207,6 +212,17 @@ export default function AdminDashboard() {
             <p className="text-gray-500">No users found.</p>
           )}
         </div>
+
+          {/* ======================= Back Button ======================= */}
+          <div className="mt-8 pt-8 border-t border-border">
+            <Button
+              onClick={() => router.push("/")}
+              variant="outline"
+              className="w-full"
+            >
+              Back to Home Page
+            </Button>
+          </div>
       </section>
 
       {/* 🔹 Popup Modal for Add/Edit */}
