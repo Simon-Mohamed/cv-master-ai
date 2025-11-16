@@ -34,6 +34,9 @@ interface AnalysisResult {
   strengths: string[]
   improvements: string[]
   suggestions: Suggestion[]
+  atsScore: number
+  atsReasons: string[]
+  extractedSections?: CVAnalysisResult['sections']
 }
 
 export default function CVAnalysisProPage() {
@@ -156,6 +159,9 @@ export default function CVAnalysisProPage() {
           severity: idx % 3 === 0 ? "warning" : "info",
           actionText: "Apply",
         })),
+        atsScore: result.analysis.atsScore,
+        atsReasons: result.ats?.reasons || [],
+        extractedSections: result.sections,
       }
       setAnalysis(mapped)
     } catch (e: any) {
@@ -285,6 +291,27 @@ export default function CVAnalysisProPage() {
             >
               {analyzing ? "Analyzing..." : "Analyze CV (Pro)"}
             </Button>
+
+            {/* ATS Score */}
+            {analysis && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+                <p className="text-lg font-bold mb-2 text-gray-900 dark:text-white">ATS Score</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-purple-600 dark:text-purple-400">{analysis.atsScore}</span>
+                  <span className="text-sm text-gray-500">/ 100</span>
+                </div>
+                {analysis.atsReasons.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">Why this score</p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                      {analysis.atsReasons.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -363,6 +390,8 @@ export default function CVAnalysisProPage() {
             </div>
           </div>
         )}
+
+        {/* Extracted Sections removed per request */}
 
         {/* Strengths and Improvements */}
         {analysis && (
