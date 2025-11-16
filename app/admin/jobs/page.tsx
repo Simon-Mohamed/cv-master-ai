@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import DashboardNav from "@/components/dashboard-nav";
 import { Button } from "@/components/ui/button";
-import { authService } from "@/lib/authService"; // أو حسب مكان الملف عندك
+import { authService } from "@/lib/authService";
 
 interface User {
   id: number;
@@ -17,10 +17,16 @@ interface Job {
   id: number;
   title: string;
   company: string;
+  company_id?: number;
   location: string;
   salary: string;
   description: string;
   requirements: string[];
+}
+
+interface Company {
+  id: number;
+  name: string;
 }
 
 export default function JobSearchPage() {
@@ -33,15 +39,21 @@ export default function JobSearchPage() {
   const [locationFilter, setLocationFilter] = useState("");
   const [savedJobs, setSavedJobs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Companies
+  const [companies, setCompanies] = useState<Company[]>([]);
+
+  // form management
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<"add" | "edit">("add");
   const [selectedJob, setSelectedJob] = useState<any>(null);
-  const [applyingJobId, setApplyingJobId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
+    company_id: "",
     title: "",
     description: "",
-    requiremnts: "",
+    requirements: "",
     location: "",
+    type: "",
     salary_from: "",
     salary_to: "",
     deadline: "",
@@ -59,24 +71,42 @@ export default function JobSearchPage() {
     const saved = localStorage.getItem("cvmaster_saved_jobs");
     if (saved) setSavedJobs(JSON.parse(saved));
 
+    // fetch both jobs and companies
     fetchJobs();
+    fetchCompanies();
   }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      const res = await authService.getAllCompanies();
+      // authService.getAllCompanies returns res.data (earlier impl returns res.data)
+      const companiesArray = res.data?.data || res.data || [];
+      // handle common shapes: {data: [...] } or direct array
+      const formatted: Company[] = Array.isArray(companiesArray)
+        ? companiesArray.map((c: any) => ({ id: c.id, name: c.name }))
+        : companiesArray;
+      setCompanies(formatted);
+    } catch (err) {
+      console.error("Error fetching companies:", err);
+    }
+  };
 
   const fetchJobs = async () => {
     try {
       const res = await authService.getAllJobs();
-      console.log("Jobs API response:", res);
+      // authService.getAllJobs currently returns the axios response
+      const jobsArray = res.data?.data || res.data || [];
 
-      // ✅ هنا بناخد الداتا من res.data.data حسب شكل الـ API
-      const jobsArray = res.data?.data || [];
-
-      // نحولها لشكل بسيط يناسب الواجهة
       const formattedJobs = jobsArray.map((job: any) => ({
         id: job.id,
         title: job.title,
-        company: job.company?.name || "Unknown Company",
+        company: job.company?.name || job.company_name || "Unknown Company",
+        company_id: job.company?.id ?? job.company_id ?? null,
         location: job.location,
-        salary: `${job.salary_from} - ${job.salary_to}`,
+        salary:
+          (job.salary_from !== undefined || job.salary_to !== undefined)
+            ? `${job.salary_from ?? ""} - ${job.salary_to ?? ""}`
+            : job.salary ?? "",
         description: job.description,
         requirements: job.requirements
           ? job.requirements.split(",").map((r: string) => r.trim())
@@ -92,7 +122,7 @@ export default function JobSearchPage() {
     }
   };
 
-  // ✅ فلترة الوظائف حسب العنوان والموقع
+  // filters
   useEffect(() => {
     let filtered = jobs;
 
@@ -113,7 +143,7 @@ export default function JobSearchPage() {
     setFilteredJobs(filtered);
   }, [searchTerm, locationFilter, jobs]);
 
-  // ✅ حفظ وظيفة
+  // SAVE JOB
   const toggleSaveJob = (jobId: number) => {
     const updated = savedJobs.includes(String(jobId))
       ? savedJobs.filter((id) => id !== String(jobId))
@@ -121,41 +151,45 @@ export default function JobSearchPage() {
     setSavedJobs(updated);
     localStorage.setItem("cvmaster_saved_jobs", JSON.stringify(updated));
   };
-  // =============================
-  // 🔹 OPEN ADD OR EDIT FORM
-  // =============================
- const handleOpenForm = (type: "add" | "edit", job?: any) => {
-  setFormType(type);
-  setShowForm(true);
 
-  if (type === "edit" && job) {
-    setSelectedJob(job);
+  // OPEN ADD/EDIT FORM
+  const handleOpenForm = (type: "add" | "edit", job?: any) => {
+    setFormType(type);
+    setShowForm(true);
 
-    setFormData({
-      title: job.title || "",
-      description: job.description || "",
-      requiremnts: job.requirements?.join(", ") || "",
-      location: job.location || "",
-      salary_from: job.salary.split(" - ")[0] || "",
-      salary_to: job.salary.split(" - ")[1] || "",
-      deadline: job.deadline || "",
-      is_active: job.is_active || "",
-    });
-  } else {
-    // إضافة وظيفة جديدة
-    setSelectedJob(null);
-    setFormData({
-      title: "",
-      description: "",
-      requiremnts: "",
-      location: "",
-      salary_from: "",
-      salary_to: "",
-      deadline: "",
-      is_active: "",
-    });
-  }
-};
+    if (type === "edit" && job) {
+      setSelectedJob(job);
+
+      const salaryParts = job.salary ? job.salary.split(" - ") : ["", ""];
+
+      setFormData({
+        company_id: job.company_id ? String(job.company_id) : job.company ? "" : "",
+        title: job.title || "",
+        description: job.description || "",
+        requirements: job.requirements?.join(", ") || "",
+        location: job.location || "",
+        type: (job as any).type || "",
+        salary_from: salaryParts[0] || "",
+        salary_to: salaryParts[1] || "",
+        deadline: (job as any).deadline ? String((job as any).deadline).slice(0, 10) : "",
+        is_active: (job as any).is_active ? "true" : "",
+      });
+    } else {
+      setSelectedJob(null);
+      setFormData({
+        company_id: companies.length > 0 ? String(companies[0].id) : "",
+        title: "",
+        description: "",
+        requirements: "",
+        location: "",
+        type: "",
+        salary_from: "",
+        salary_to: "",
+        deadline: "",
+        is_active: "",
+      });
+    }
+  };
 
   const handleDeleteJob = async (id: number) => {
     if (!confirm("Are you sure you want to delete this Job?")) return;
@@ -166,7 +200,8 @@ export default function JobSearchPage() {
         title: "Success",
         description: "Job deleted successfully.",
       });
-    } catch (error) {
+    } catch (err) {
+      console.error("Delete error:", err);
       toast({
         title: "Error",
         description: "Failed to delete Job.",
@@ -174,83 +209,103 @@ export default function JobSearchPage() {
       });
     }
   };
-  // =============================
-  // 🔹 SUBMIT FORM (ADD / EDIT)
-  // =============================
-const handleSubmit = async (e: any) => {
-  e.preventDefault();
 
-  const payload = {
-    title: formData.title,
-    description: formData.description,
-    requirements: formData.requiremnts,
-    location: formData.location,
-    salary_from: formData.salary_from,
-    salary_to: formData.salary_to,
-    deadline: formData.deadline,
-    is_active: formData.is_active,
+  // SUBMIT ADD/EDIT
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+
+    // Prepare payload according to API examples you provided
+    const payload: any = {
+      company_id: formData.company_id ? Number(formData.company_id) : undefined,
+      title: formData.title,
+      description: formData.description,
+      requirements: formData.requirements,
+      location: formData.location,
+      type: formData.type || undefined,
+      salary_from: formData.salary_from !== "" ? formData.salary_from : undefined,
+      salary_to: formData.salary_to !== "" ? formData.salary_to : undefined,
+      deadline: formData.deadline || undefined,
+      is_active:
+        formData.is_active === "" ? undefined : formData.is_active === "true",
+    };
+
+    // Remove undefined fields to avoid sending empty values
+    Object.keys(payload).forEach((k) => {
+      if (payload[k] === undefined || payload[k] === "") delete payload[k];
+    });
+
+    try {
+      // ====== ADD NEW JOB ======
+      if (formType === "add") {
+        const res = await authService.createJob(payload);
+        // authService.createJob returns res.data (per your file)
+        const created = res?.job || res?.data || res;
+
+        // created may be the job object or { job: {...} }
+        const jobObj = created.job || created || res;
+
+        const newJobFormatted: Job = {
+          id: jobObj.id,
+          title: jobObj.title,
+          company: jobObj.company?.name || findCompanyName(jobObj.company_id) || "Unknown Company",
+          company_id: jobObj.company?.id ?? jobObj.company_id ?? null,
+          location: jobObj.location,
+          salary: `${jobObj.salary_from ?? ""} - ${jobObj.salary_to ?? ""}`,
+          description: jobObj.description,
+          requirements: jobObj.requirements ? jobObj.requirements.split(",").map((r: string) => r.trim()) : [],
+        };
+
+        setJobs((prev) => [...prev, newJobFormatted]);
+        setFilteredJobs((prev) => [...prev, newJobFormatted]);
+
+        toast({
+          title: "Success",
+          description: "Job added successfully.",
+        });
+      }
+
+      // ====== EDIT JOB ======
+      if (formType === "edit" && selectedJob) {
+        const res = await authService.updateJob(selectedJob.id, payload);
+        const updatedResp = res?.job || res?.data || res;
+        const jobObj = updatedResp.job || updatedResp || res;
+
+        const updatedFormatted: Job = {
+          id: jobObj.id,
+          title: jobObj.title,
+          company: jobObj.company?.name || findCompanyName(jobObj.company_id) || "Unknown Company",
+          company_id: jobObj.company?.id ?? jobObj.company_id ?? selectedJob.company_id ?? null,
+          location: jobObj.location,
+          salary: `${jobObj.salary_from ?? ""} - ${jobObj.salary_to ?? ""}`,
+          description: jobObj.description,
+          requirements: jobObj.requirements ? jobObj.requirements.split(",").map((r: string) => r.trim()) : [],
+        };
+
+        setJobs((prev) => prev.map((j) => (j.id === selectedJob.id ? updatedFormatted : j)));
+        setFilteredJobs((prev) => prev.map((j) => (j.id === selectedJob.id ? updatedFormatted : j)));
+
+        toast({
+          title: "Success",
+          description: "Job updated successfully.",
+        });
+      }
+
+      setShowForm(false);
+    } catch (error: any) {
+      console.error("Save job error:", error);
+      toast({
+        title: "Error",
+        description: error?.response?.data?.message || "Failed to save job.",
+        variant: "destructive",
+      });
+    }
   };
 
-  try {
-    // ====== ADD NEW JOB ======
-    if (formType === "add") {
-      const res = await authService.createJob(payload);
-      const created = res.data;
-
-      const newJobFormatted = {
-        id: created.id,
-        title: created.title,
-        company: created.company?.name || "Unknown Company",
-        location: created.location,
-        salary: `${created.salary_from} - ${created.salary_to}`,
-        description: created.description,
-        requirements: created.requirements?.split(",") || [],
-      };
-
-      setJobs((prev) => [...prev, newJobFormatted]);
-
-      toast({
-        title: "Success",
-        description: "Job added successfully.",
-      });
-    }
-
-    // ====== EDIT JOB ======
-    if (formType === "edit" && selectedJob) {
-      const res = await authService.updateJob(selectedJob.id, payload);
-      const updated = res.data;
-
-      const updatedFormatted = {
-        id: updated.id,
-        title: updated.title,
-        company: updated.company?.name || "Unknown Company",
-        location: updated.location,
-        salary: `${updated.salary_from} - ${updated.salary_to}`,
-        description: updated.description,
-        requirements: updated.requirements?.split(",") || [],
-      };
-
-      setJobs((prev) =>
-        prev.map((j) => (j.id === selectedJob.id ? updatedFormatted : j))
-      );
-
-      toast({
-        title: "Success",
-        description: "Job updated successfully.",
-      });
-    }
-
-    setShowForm(false);
-  } catch (error: any) {
-    toast({
-      title: "Error",
-      description:
-        error?.response?.data?.message || "Failed to save job.",
-      variant: "destructive",
-    });
-  }
-};
-
+  const findCompanyName = (company_id?: number) => {
+    if (!company_id) return undefined;
+    const c = companies.find((x) => x.id === Number(company_id));
+    return c?.name;
+  };
 
   if (loading) {
     return (
@@ -269,14 +324,17 @@ const handleSubmit = async (e: any) => {
           <section className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-primary mb-2"> All Jobs</h1>
             <Button
-              onClick={() => router.push("/admin/jobs/add")}
+              onClick={() => {
+                // open add form and set default company if available
+                handleOpenForm("add");
+              }}
               className="bg-accent hover:bg-accent/90"
             >
               + Add New Job
             </Button>
           </section>
 
-          {/* 🔹 Filters */}
+          {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
@@ -304,7 +362,7 @@ const handleSubmit = async (e: any) => {
             </div>
           </div>
 
-          {/* 🔹 Jobs List */}
+          {/* Jobs List */}
           <div className="space-y-4">
             {filteredJobs.length > 0 ? (
               filteredJobs.map((job) => (
@@ -318,23 +376,10 @@ const handleSubmit = async (e: any) => {
                         Job Title: {job.title}
                       </h3>
                       <span className="text-muted-foreground">
-                        Company Name :{" "}
+                        Company Name:
                       </span>
                       <p className="text-muted-foreground">{job.company}</p>
                     </div>
-                    {/* ============= heart icon for saving job ============= */}
-                    {/* <div className="text-right">
-                      <button
-                        onClick={() => toggleSaveJob(job.id)}
-                        className={`text-2xl ${
-                          savedJobs.includes(String(job.id))
-                            ? "text-accent"
-                            : "text-gray-300"
-                        }`}
-                      >
-                        ♥
-                      </button>
-                    </div> */}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
@@ -351,11 +396,11 @@ const handleSubmit = async (e: any) => {
                       </p>
                     </div>
                   </div>
+
                   <span className="text-muted-foreground">
                     Job Description:
                   </span>
-
-                  <p className="text-foreground mb-4"> {job.description}</p>
+                  <p className="text-foreground mb-4">{job.description}</p>
 
                   <div className="mb-4">
                     <p className="text-sm font-medium text-foreground mb-2">
@@ -374,11 +419,17 @@ const handleSubmit = async (e: any) => {
                   </div>
 
                   <section className="flex items-center gap-4">
-                    {/* edit and delete buttons */}
                     <Button
-                      onClick={() => handleOpenForm("edit", job)}
+                      onClick={(e) => {
+                        // prevent parent click if any
+                        e.stopPropagation();
+                        handleOpenForm("edit", job);
+                      }}
                       className="bg-accent hover:bg-accent/90"
-                    >Edit</Button>
+                    >
+                      Edit
+                    </Button>
+
                     <button
                       onClick={() => handleDeleteJob(job.id)}
                       className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
@@ -397,7 +448,7 @@ const handleSubmit = async (e: any) => {
             )}
           </div>
 
-          {/* Back Button */}
+          {/* BACK BUTTON */}
           <div className="mt-8 pt-8 border-t border-border">
             <Button
               onClick={() => router.push("/dashboard")}
@@ -409,6 +460,194 @@ const handleSubmit = async (e: any) => {
           </div>
         </div>
       </main>
+
+      {/* =========================== */}
+      {/*      ADD / EDIT FORM        */}
+      {/* =========================== */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl p-6">
+            <h2 className="text-xl font-semibold mb-4">
+              {formType === "add" ? "Add New Job" : "Edit Job"}
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Company select */}
+              <div>
+                <label className="block text-sm font-medium">Company</label>
+                <select
+                  value={formData.company_id}
+                  onChange={(e) =>
+                    setFormData({ ...formData, company_id: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                >
+                  <option value="">Select company</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Title</label>
+                <input
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  rows={4}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium">
+                    Salary From
+                  </label>
+                  <input
+                    value={formData.salary_from}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        salary_from: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium">
+                    Salary To
+                  </label>
+                  <input
+                    value={formData.salary_to}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        salary_to: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Location</label>
+                <input
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      location: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Type</label>
+                <input
+                  value={formData.type}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      type: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                  placeholder="e.g., full-time, part-time"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">
+                  Requirements (comma separated)
+                </label>
+                <input
+                  value={formData.requirements}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      requirements: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Deadline</label>
+                <input
+                  type="date"
+                  value={formData.deadline}
+                  onChange={(e) =>
+                    setFormData({ ...formData, deadline: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium">Active</label>
+                <select
+                  value={formData.is_active}
+                  onChange={(e) =>
+                    setFormData({ ...formData, is_active: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded"
+                >
+                  <option value="">Select</option>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2 border rounded"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-accent text-white rounded"
+                >
+                  {formType === "add" ? "Create" : "Save"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
