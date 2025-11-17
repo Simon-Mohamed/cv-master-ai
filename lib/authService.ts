@@ -177,40 +177,48 @@ updateUser: async (id: number, data: any) => {
     return res.data;
   },
 
-  // ----- COMPANIES -----
-  getAllCompanies: async () => {
-    const token = localStorage.getItem("token");
-    const res = await axios.get(`${API_URL}/admin/companies`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.data;
-  },
+//   // ----- COMPANIES -----
+//   getAllCompanies: async () => {
+//     const token = localStorage.getItem("token");
+//     const res = await axios.get(`${API_URL}/admin/companies`, {
+//       headers: { Authorization: `Bearer ${token}` },
+//     });
+//     return res.data;
+//   },
 
-  createCompany: async (companyData: any) => {
-    const token = localStorage.getItem("token");
-    const res = await axios.post(`${API_URL}/admin/companies`, companyData, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.data;
-  },
+//   // createCompany: async (companyData: any) => {
+//   //   const token = localStorage.getItem("token");
+//   //   const res = await axios.post(`${API_URL}/admin/companies`, companyData, {
+//   //     headers: { Authorization: `Bearer ${token}` },
+//   //   });
+//   //   return res.data;
+//   // },
+//   createCompany: async (companyData: any) => {
+//   const token = localStorage.getItem("token");
+//   const res = await axios.post(`${API_URL}/admin/companies`, companyData, {
+//     headers: { Authorization: `Bearer ${token}` },
+//   });
+//   // لو الـ Laravel بيرجع البيانات داخل data
+//   return res.data.data ?? res.data;
+// },
 
-  updateCompany: async (id: number, data: any) => {
-    const token = localStorage.getItem("token");
-    const payload = { ...data, _method: "PUT" };
+//   updateCompany: async (id: number, data: any) => {
+//     const token = localStorage.getItem("token");
+//     const payload = { ...data, _method: "PUT" };
 
-    const res = await axios.post(`${API_URL}/admin/companies/${id}`, payload, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.data;
-  },
+//     const res = await axios.post(`${API_URL}/admin/companies/${id}`, payload, {
+//       headers: { Authorization: `Bearer ${token}` },
+//     });
+//     return res.data;
+//   },
 
-  deleteCompany: async (id: number) => {
-    const token = localStorage.getItem("token");
-    const res = await axios.delete(`${API_URL}/admin/companies/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.data;
-  },
+//   deleteCompany: async (id: number) => {
+//     const token = localStorage.getItem("token");
+//     const res = await axios.delete(`${API_URL}/admin/companies/${id}`, {
+//       headers: { Authorization: `Bearer ${token}` },
+//     });
+//     return res.data;
+//   },
 
   // ----- JOBS -----
   // getAllJobs: async () => {
@@ -228,6 +236,45 @@ updateUser: async (id: number, data: any) => {
   
 //   return res.data;
 // },
+
+
+//  ====================
+// 🔹 Companies
+// ================
+
+getAllCompanies: async () => {
+  const token = localStorage.getItem("token");
+  const res = await axios.get(`${API_URL}/admin/companies`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  // نرجع array الشركات فقط
+  return res.data.data ?? [];
+},
+
+createCompany: async (companyData: any) => {
+  const token = localStorage.getItem("token");
+  const res = await axios.post(`${API_URL}/admin/companies`, companyData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data.data ?? res.data;
+},
+
+updateCompany: async (id: number, data: any) => {
+  const token = localStorage.getItem("token");
+  const payload = { ...data, _method: "PUT" };
+  const res = await axios.post(`${API_URL}/admin/companies/${id}`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data.data ?? res.data;
+},
+  deleteCompany: async (id: number) => {
+    const token = localStorage.getItem("token");
+    const res = await axios.delete(`${API_URL}/admin/companies/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  },
+//
 getAllJobs: async () => {
   const token = localStorage.getItem("token");
   const res = await axios.get(`${API_URL}/jobs`, {
