@@ -25,6 +25,7 @@ export default function AdminDashboard() {
     password: "",
     password_confirmation: "",
   });
+  const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
 
   // =============================
   // 🔹 FETCH DATA

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { cvEnhanceService } from "@/lib/cv-enhance-service"
 
 interface User {
-  id: string
+  id: number
   name: string
   email: string
   createdAt: string
