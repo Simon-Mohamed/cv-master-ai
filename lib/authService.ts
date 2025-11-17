@@ -1,3 +1,189 @@
+// import axios from "axios";
+
+// const API_URL = "http://127.0.0.1:8000/api";
+
+// // Function to get token
+// const getAuthHeaders = () => {
+//   const token = localStorage.getItem("token");
+//   return {
+//     Authorization: `Bearer ${token}`,
+//     Accept: "application/json",
+//   };
+// };
+
+// export const authService = {
+//   // ============================
+//   // AUTH
+//   // ============================
+//   register: async (userData: any) => {
+//     const res = await axios.post(`${API_URL}/register`, userData);
+//     if (res.data.access_token) {
+//       localStorage.setItem("cvmaster_user", JSON.stringify(res.data.user));
+//       localStorage.setItem("token", res.data.access_token);
+//     }
+//     return res.data;
+//   },
+
+//   login: async (credentials: any) => {
+//     const res = await axios.post(`${API_URL}/login`, credentials);
+//     if (res.data.access_token) {
+//       localStorage.setItem("cvmaster_user", JSON.stringify(res.data.user));
+//       localStorage.setItem("token", res.data.access_token);
+//     }
+//     return res.data;
+//   },
+
+//   logout: () => {
+//     localStorage.removeItem("cvmaster_user");
+//     localStorage.removeItem("token");
+//     localStorage.removeItem("cvmaster_profile");
+//   },
+
+//   // ============================
+//   // PROFILE
+//   // ============================
+//   getProfile: async () => {
+//     const res = await axios.get(`${API_URL}/profile`, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data.profile;
+//   },
+
+//   updateProfile: async (profileData: any) => {
+//     const payload = { ...profileData, _method: "PUT" };
+
+//     const res = await axios.post(`${API_URL}/profile`, payload, {
+//       headers: getAuthHeaders(),
+//     });
+
+//     localStorage.setItem("cvmaster_profile", JSON.stringify(res.data.profile));
+//     return res.data.profile;
+//   },
+
+//   // ============================
+//   // USERS CRUD
+//   // ============================
+//   getAllUsers: async () => {
+//     const res = await axios.get(`${API_URL}/admin/users`, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+
+//   getUserById: async (id: number) => {
+//     const res = await axios.get(`${API_URL}/admin/users/${id}`, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+
+//   addUser: async (userData: any) => {
+//     const res = await axios.post(`${API_URL}/admin/users`, userData, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+
+//   updateUser: async (id: number, data: any) => {
+//     const filteredData: any = {};
+//     Object.keys(data).forEach((k) => {
+//       if (data[k] !== "" && data[k] !== null) filteredData[k] = data[k];
+//     });
+
+//     const res = await axios.put(`${API_URL}/admin/users/${id}`, filteredData, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+
+//   deleteUser: async (id: number) => {
+//     const res = await axios.delete(`${API_URL}/admin/users/${id}`, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+
+//   // ============================
+//   // COMPANIES CRUD
+//   // ============================
+//   getAllCompanies: async () => {
+//     const res = await axios.get(`${API_URL}/admin/companies`, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data; // returns array
+//   },
+
+//   createCompany: async (companyData: any) => {
+//     const res = await axios.post(`${API_URL}/admin/companies`, companyData, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data; // returns created company
+//   },
+
+//   updateCompany: async (id: number, data: any) => {
+//     const payload = { ...data, _method: "PUT" };
+
+//     const res = await axios.post(`${API_URL}/admin/companies/${id}`, payload, {
+//       headers: getAuthHeaders(),
+//     });
+
+//     return res.data.company ?? res.data; // FIXED
+//   },
+
+//   deleteCompany: async (id: number) => {
+//     const res = await axios.delete(`${API_URL}/admin/companies/${id}`, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+
+//   // ============================
+//   // JOBS
+//   // ============================
+//   getAllJobs: async () => {
+//     const res = await axios.get(`${API_URL}/jobs`, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+
+//   applyToJob: async (jobId: number, formData: FormData) => {
+//     const res = await axios.post(
+//       `${API_URL}/jobs/${jobId}/apply`,
+//       formData,
+//       {
+//         headers: {
+//           ...getAuthHeaders(),
+//           "Content-Type": "multipart/form-data",
+//         },
+//       }
+//     );
+//     return res.data;
+//   },
+
+//   createJob: async (jobData: any) => {
+//     const res = await axios.post(`${API_URL}/admin/jobs`, jobData, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+
+//   updateJob: async (id: number, data: any) => {
+//     const payload = { ...data, _method: "PUT" };
+
+//     const res = await axios.post(`${API_URL}/admin/jobs/${id}`, payload, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+
+//   deleteJob: async (id: number) => {
+//     const res = await axios.delete(`${API_URL}/admin/jobs/${id}`, {
+//       headers: getAuthHeaders(),
+//     });
+//     return res.data;
+//   },
+// };
 import axios from "axios";
 
 const API_URL = "http://127.0.0.1:8000/api";
