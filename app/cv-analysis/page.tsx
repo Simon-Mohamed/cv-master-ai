@@ -999,7 +999,7 @@ import { Button } from "@/components/ui/button"
 import { Download, Sparkles, Save } from "lucide-react"
 
 interface User {
-  id: string
+  id: number
   name: string
   email: string
   createdAt: string

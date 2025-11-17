@@ -11,7 +11,7 @@ const AdminDashboard: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const token = localStorage.getItem("token");
+  const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
 
   useEffect(() => {
     const fetchData = async () => {

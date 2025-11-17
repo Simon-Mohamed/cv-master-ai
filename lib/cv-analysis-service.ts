@@ -61,6 +61,8 @@ export interface CVAnalysisResult {
       count: number;
     };
   };
+  isValidCV?: boolean;
+  documentType?: string;
 }
 
 export interface UploadedFile {
