@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
@@ -1106,7 +1107,55 @@ export default function EnhanceCVPage() {
                   </div>
                 )}
 
-                
+                {!hiddenSections['languages'] && (
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div 
+                        className="font-semibold text-xs tracking-wider px-3 py-1 border" 
+                        style={{ borderColor: accentColor, color: accentColor }}
+                      >
+                        {enhancedData?.sectionTitles?.languages || 'LANGUAGES'}
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('languages')}>
+                        Hide
+                      </Button>
+                    </div>
+                    <div 
+                      className="bg-gray-50 border-b border-l border-r rounded-b p-3" 
+                      style={{ borderColor: accentColor }}
+                    >
+                      <ul className="list-disc pl-5 space-y-1">
+                        {toArray(enhancedData?.languages).map((lang: string, idx: number) => (
+                          <li key={idx}>
+                            <input 
+                              className="w-full outline-none bg-transparent" 
+                              value={lang} 
+                              onChange={(e)=>{
+                                const langsArray = toArray(enhancedData?.languages)
+                                langsArray[idx] = e.target.value
+                                setEnhancedData({ ...enhancedData, languages: langsArray.filter(Boolean) })
+                              }}
+                            />
+                          </li>
+                        ))}
+                        <li>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={()=>{
+                              const langsArray = toArray(enhancedData?.languages)
+                              langsArray.push("")
+                              setEnhancedData({ ...enhancedData, languages: langsArray })
+                            }}
+                          >
+                            Add Language
+                          </Button>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
                 {!hiddenSections['education'] && (
                   <div>
                     <div className="flex items-center justify-between">
@@ -1172,55 +1221,6 @@ export default function EnhanceCVPage() {
                         </li>
                       ))}
                     </ul>
-                  </div>
-                )}
-
-                {!hiddenSections['languages'] && (
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <div 
-                        className="font-semibold text-xs tracking-wider px-3 py-1 border" 
-                        style={{ borderColor: accentColor, color: accentColor }}
-                      >
-                        {enhancedData?.sectionTitles?.languages || 'LANGUAGES'}
-                      </div>
-                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('languages')}>
-                        Hide
-                      </Button>
-                    </div>
-                    <div 
-                      className="bg-gray-50 border-b border-l border-r rounded-b p-3" 
-                      style={{ borderColor: accentColor }}
-                    >
-                      <ul className="list-disc pl-5 space-y-1">
-                        {toArray(enhancedData?.languages).map((lang: string, idx: number) => (
-                          <li key={idx}>
-                            <input 
-                              className="w-full outline-none bg-transparent" 
-                              value={lang} 
-                              onChange={(e)=>{
-                                const langsArray = toArray(enhancedData?.languages)
-                                langsArray[idx] = e.target.value
-                                setEnhancedData({ ...enhancedData, languages: langsArray.filter(Boolean) })
-                              }}
-                            />
-                          </li>
-                        ))}
-                        <li>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={()=>{
-                              const langsArray = toArray(enhancedData?.languages)
-                              langsArray.push("")
-                              setEnhancedData({ ...enhancedData, languages: langsArray })
-                            }}
-                          >
-                            Add Language
-                          </Button>
-                        </li>
-                      </ul>
-                    </div>
                   </div>
                 )}
 
