@@ -327,10 +327,19 @@ applyToJob: async (jobId: number, formData: FormData) => {
 
   createJob: async (jobData: any) => {
     const token = localStorage.getItem("token");
-    const res = await axios.post(`${API_URL}/admin/jobs`, jobData, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.data;
+    try {
+      const res = await axios.post(`${API_URL}/admin/jobs`, jobData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.data;
+    } catch (error: any) {
+      // If validation failed, forward the server response so caller can show messages
+      if (axios.isAxiosError(error)) {
+        console.error("createJob error response:", error.response?.data);
+        throw error.response?.data || error.message;
+      }
+      throw error;
+    }
   },
 
   updateJob: async (id: number, data: any) => {
