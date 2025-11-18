@@ -233,17 +233,6 @@ export default function FormSection({ cv, setCV, onStepChange }: { cv: CVData; s
           <div className="p-5 shadow-lg rounded-lg border-t-primary border-t-4 mt-2">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-bold text-lg">Professional Summary</h2>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="gap-2"
-                onClick={handleGenerateSummary}
-                disabled={summaryLoading}
-              >
-                <Sparkles className="w-4 h-4" />
-                {summaryLoading ? "Generating..." : "Generate with AI"}
-              </Button>
             </div>
             <Textarea
               rows={6}
