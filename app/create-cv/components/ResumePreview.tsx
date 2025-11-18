@@ -18,10 +18,11 @@ export interface CVDataPreview {
   education: EducationItem[]
   skills: string[]
   themeColor?: string
-  projects?: { id: string; title: string; description: string; link?: string }[]
+  projects?: { id: string; title: string; description: string; link?: string; isGithubRepo?: boolean }[]
   fontSize?: number
   fontSizes?: { name?: number; title?: number; body?: number }
   linkifyContacts?: boolean
+  achievements?: string[]
 }
 
 export default function ResumePreview({ cv }: { cv: CVDataPreview }) {
@@ -155,13 +156,24 @@ export default function ResumePreview({ cv }: { cv: CVDataPreview }) {
                 <div className="flex justify-between items-start">
                   <h3 className="font-medium text-gray-900">{p.title}</h3>
                   {p.link && (
-                    <a href={p.link} target="_blank" className="text-xs text-blue-600 underline">{p.link}</a>
+                    <a href={p.link} target="_blank" className="text-xs text-blue-600 underline">{p.isGithubRepo ? "Github Repo" : p.link}</a>
                   )}
                 </div>
                 {p.description && <p className="text-sm text-gray-700 leading-relaxed">{p.description}</p>}
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {cv.achievements && cv.achievements.length > 0 && (
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Achievements</h2>
+          <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700">
+            {cv.achievements.map((a, idx) => (
+              <li key={idx}>{a}</li>
+            ))}
+          </ul>
         </div>
       )}
 

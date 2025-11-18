@@ -31,6 +31,8 @@ export default function CreateCVPage() {
     education: [],
     skills: [],
     projects: [],
+    achievements: [],
+
     fontSize: 10.5,
     fontSizes: { name: 26, title: 14, body: 10.5 },
     linkifyContacts: false,
@@ -67,6 +69,8 @@ export default function CreateCVPage() {
         education: [],
         skills: [],
         projects: [],
+        achievements: [],
+
         fontSize: 10.5,
         fontSizes: { name: 26, title: 14, body: 10.5 },
         linkifyContacts: false,

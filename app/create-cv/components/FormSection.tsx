@@ -17,7 +17,7 @@ type EducationItem = {
   endDate: string;
   currentlyStudying?: boolean;
 }
-type ProjectItem = { id: string; title: string; description: string; link?: string }
+type ProjectItem = { id: string; title: string; description: string; link?: string; isGithubRepo?: boolean }
 
 export interface CVData {
   personalInfo: { fullName: string; jobTitle: string; email: string; phone: string; location: string; linkedin?: string; github?: string; militaryService?: string }
@@ -27,6 +27,7 @@ export interface CVData {
   skills: string[]
   themeColor?: string
   projects: ProjectItem[]
+  achievements?: string[]
   fontSize?: number
   fontSizes?: { name?: number; title?: number; body?: number }
   linkifyContacts?: boolean
@@ -36,7 +37,8 @@ export default function FormSection({ cv, setCV, onStepChange }: { cv: CVData; s
   const [activeFormIndex, setActiveFormIndex] = useState(1)
   const [enableNext, setEnableNext] = useState(false)
   const [skillInput, setSkillInput] = useState("")
-  const [projectInput, setProjectInput] = useState<{ title: string; description: string; link?: string }>({ title: "", description: "", link: "" })
+  const [projectInput, setProjectInput] = useState<{ title: string; description: string; link?: string; isGithubRepo?: boolean }>({ title: "", description: "", link: "", isGithubRepo: false })
+  const [achievementInput, setAchievementInput] = useState("")
   const [activeFontTarget, setActiveFontTarget] = useState<'name'|'title'|'body'>('body')
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summarySuggestions, setSummarySuggestions] = useState<string[]>([])
@@ -95,12 +97,41 @@ export default function FormSection({ cv, setCV, onStepChange }: { cv: CVData; s
     const t = projectInput.title.trim()
     const d = projectInput.description.trim()
     if (!t || !d) return
-    setCV((prev: any) => ({ ...prev, projects: [...(prev.projects||[]), { id: Date.now().toString(), title: t, description: d, link: projectInput.link?.trim() }] }))
-    setProjectInput({ title: "", description: "", link: "" })
+    setCV((prev: any) => ({
+      ...prev,
+      projects: [
+        ...(prev.projects||[]),
+        {
+          id: Date.now().toString(),
+          title: t,
+          description: d,
+          link: projectInput.link?.trim(),
+          isGithubRepo: !!projectInput.isGithubRepo,
+        },
+      ],
+    }))
+    setProjectInput({ title: "", description: "", link: "", isGithubRepo: false })
   }
 
   const removeProject = (id: string) => {
     setCV((prev: any) => ({ ...prev, projects: (prev.projects||[]).filter((p: any)=>p.id!==id) }))
+  }
+
+  const addAchievement = () => {
+    const a = achievementInput.trim()
+    if (!a) return
+    setCV((prev: any) => ({
+      ...prev,
+      achievements: [...(prev.achievements || []), a],
+    }))
+    setAchievementInput("")
+  }
+
+  const removeAchievement = (idx: number) => {
+    setCV((prev: any) => ({
+      ...prev,
+      achievements: (prev.achievements || []).filter((_, i) => i !== idx),
+    }))
   }
 
   const goToStep = (step: number) => {
@@ -387,6 +418,15 @@ export default function FormSection({ cv, setCV, onStepChange }: { cv: CVData; s
               <Input placeholder="Project Title" value={projectInput.title} onChange={(e)=>setProjectInput({...projectInput, title: e.target.value})} />
               <Textarea rows={3} placeholder="Short Description" value={projectInput.description} onChange={(e)=>setProjectInput({...projectInput, description: e.target.value})} />
               <Input placeholder="Link (optional)" value={projectInput.link} onChange={(e)=>setProjectInput({...projectInput, link: e.target.value})} />
+              <div className="flex items-center gap-2">
+                <input
+                  id="project-github-repo"
+                  type="checkbox"
+                  checked={!!projectInput.isGithubRepo}
+                  onChange={(e)=>setProjectInput({...projectInput, isGithubRepo: e.target.checked})}
+                />
+                <label htmlFor="project-github-repo" className="text-sm">Github Repo</label>
+              </div>
               <Button onClick={addProject}>Add Project</Button>
             </div>
             <div className="mt-4 space-y-3">
@@ -396,7 +436,11 @@ export default function FormSection({ cv, setCV, onStepChange }: { cv: CVData; s
                     <div>
                       <div className="font-medium">{p.title}</div>
                       <div className="text-sm text-muted-foreground whitespace-pre-line">{p.description}</div>
-                      {p.link && <a href={p.link} target="_blank" className="text-xs text-accent underline">{p.link}</a>}
+                      {p.link && (
+                        <a href={p.link} target="_blank" className="text-xs text-accent underline">
+                          {p.isGithubRepo ? "Github Repo" : p.link}
+                        </a>
+                      )}
                     </div>
                     <Button variant="ghost" className="text-red-600" onClick={()=>removeProject(p.id)}>Remove</Button>
                   </div>
@@ -407,7 +451,37 @@ export default function FormSection({ cv, setCV, onStepChange }: { cv: CVData; s
         ) : activeFormIndex === 6 ? (
           <div className="p-5 shadow-lg rounded-lg border-t-primary border-t-4 mt-2">
             <h2 className="font-bold text-lg">Achievements</h2>
-            <p className="text-sm text-muted-foreground">You can add achievements later.</p>
+            <p className="text-sm text-muted-foreground mb-3">Add any notable achievements, or skip this step for now.</p>
+            <div className="flex gap-2 mb-3">
+              <Input
+                placeholder="Add an achievement"
+                value={achievementInput}
+                onChange={(e)=>setAchievementInput(e.target.value)}
+                onKeyDown={(e)=>{ if (e.key === "Enter") { e.preventDefault(); addAchievement() } }}
+              />
+              <Button onClick={addAchievement}>Add</Button>
+            </div>
+            <div className="mt-2">
+              {(cv.achievements || []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">No achievements added yet.</p>
+              ) : (
+                <ul className="list-disc pl-5 space-y-1 text-sm">
+                  {(cv.achievements || []).map((a, idx) => (
+                    <li key={idx} className="flex items-center justify-between gap-2">
+                      <span>{a}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="text-red-600 h-6 px-2 text-xs"
+                        onClick={()=>removeAchievement(idx)}
+                      >
+                        Remove
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         ) : activeFormIndex === 7 ? (
           <div className="p-5 shadow-lg rounded-lg border-t-primary border-t-4 mt-2">
