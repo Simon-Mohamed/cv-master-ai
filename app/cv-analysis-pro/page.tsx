@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { cvAnalysisService, type CVAnalysisResult } from "@/lib/cv-analysis-service"
 
 interface User {
-  id: string
+  id: number
   name: string
   email: string
   createdAt: string
@@ -34,6 +34,11 @@ interface AnalysisResult {
   strengths: string[]
   improvements: string[]
   suggestions: Suggestion[]
+  atsScore: number
+  atsReasons: string[]
+  extractedSections?: CVAnalysisResult['sections']
+  isValidCV?: boolean
+  documentType?: string
 }
 
 export default function CVAnalysisProPage() {
@@ -99,8 +104,15 @@ export default function CVAnalysisProPage() {
     setAnalyzing(true)
     try {
       const result: CVAnalysisResult = await cvAnalysisService.analyzeCV(file)
+      
+      // Check if it's a valid CV
+      const isValidCV = result.isValidCV !== false
+      const documentType = result.documentType || 'UNKNOWN'
+      
       const mapped: AnalysisResult = {
         overallScore: result.analysis.overallScore,
+        isValidCV: isValidCV,
+        documentType: documentType,
         sections: [
           {
             name: "Contact Information (Pro)",
@@ -156,8 +168,22 @@ export default function CVAnalysisProPage() {
           severity: idx % 3 === 0 ? "warning" : "info",
           actionText: "Apply",
         })),
+        atsScore: result.analysis.atsScore,
+        atsReasons: result.ats?.reasons || [],
+        extractedSections: result.sections,
       }
       setAnalysis(mapped)
+      
+      // Show alert if not a valid CV
+      if (!isValidCV) {
+        const docTypeName: Record<string, string> = {
+          'CERTIFICATE': 'certificate',
+          'COVER_LETTER': 'cover letter',
+          'OTHER': 'document',
+          'UNKNOWN': 'document'
+        }
+        alert(`⚠️ This appears to be a ${docTypeName[documentType] || 'document'}, not a CV/resume. Please upload your complete CV for accurate analysis.`)
+      }
     } catch (e: any) {
       alert(e?.message || "Failed to analyze CV. Please try again.")
     } finally {
@@ -185,6 +211,28 @@ export default function CVAnalysisProPage() {
             </p>
           </div>
         </div>
+
+        {/* Warning Banner for Non-CV Documents */}
+        {analysis && !analysis.isValidCV && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg">
+            <div className="flex items-start">
+              <svg className="w-6 h-6 text-red-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <h3 className="text-lg font-bold text-red-800 dark:text-red-300">
+                  {analysis.documentType === 'CERTIFICATE' ? 'Certificate Detected' : 'Invalid Document Type'}
+                </h3>
+                <p className="text-sm text-red-700 dark:text-red-400 mt-1">
+                  {analysis.documentType === 'CERTIFICATE' 
+                    ? 'This appears to be a certificate of completion or training, not a CV/resume.'
+                    : 'This document does not appear to be a CV/resume.'}
+                  {' '}Please upload your complete CV with work experience, education, and skills sections for accurate analysis.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -254,11 +302,19 @@ export default function CVAnalysisProPage() {
                     strokeWidth="3"
                     strokeDasharray={`${analysis ? (analysis.overallScore / 100) * 100 : 0}, 100`}
                     strokeLinecap="round"
-                    className="text-purple-600 dark:text-purple-400 transition-all duration-500"
+                    className={`transition-all duration-500 ${
+                      analysis?.isValidCV === false 
+                        ? 'text-red-500 dark:text-red-400' 
+                        : 'text-purple-600 dark:text-purple-400'
+                    }`}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  <span className={`text-4xl font-bold ${
+                    analysis?.isValidCV === false 
+                      ? 'text-red-600 dark:text-red-400' 
+                      : 'text-gray-900 dark:text-white'
+                  }`}>
                     {analysis?.overallScore || 0}
                   </span>
                 </div>
@@ -270,7 +326,11 @@ export default function CVAnalysisProPage() {
                 </div>
                 <div className="rounded bg-purple-200 dark:bg-purple-900/30 mt-2">
                   <div
-                    className="h-2 rounded bg-purple-600 dark:bg-purple-400 transition-all duration-500"
+                    className={`h-2 rounded transition-all duration-500 ${
+                      analysis?.isValidCV === false 
+                        ? 'bg-red-500 dark:bg-red-400' 
+                        : 'bg-purple-600 dark:bg-purple-400'
+                    }`}
                     style={{ width: `${analysis?.overallScore || 0}%` }}
                   />
                 </div>
@@ -285,11 +345,42 @@ export default function CVAnalysisProPage() {
             >
               {analyzing ? "Analyzing..." : "Analyze CV (Pro)"}
             </Button>
+
+            {/* ATS Score */}
+            {/* {analysis && (
+              <div className={`rounded-xl shadow-lg p-6 ${
+                analysis.isValidCV === false 
+                  ? 'bg-red-50 dark:bg-red-900/20' 
+                  : 'bg-white dark:bg-slate-800'
+              }`}>
+                <p className="text-lg font-bold mb-2 text-gray-900 dark:text-white">ATS Score</p>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-3xl font-extrabold ${
+                    analysis.isValidCV === false 
+                      ? 'text-red-600 dark:text-red-400' 
+                      : 'text-purple-600 dark:text-purple-400'
+                  }`}>{analysis.atsScore}</span>
+                  <span className="text-sm text-gray-500">/ 100</span>
+                </div>
+                {analysis.atsReasons.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                      {analysis.isValidCV === false ? 'Why this failed' : 'Why this score'}
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                      {analysis.atsReasons.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )} */}
           </div>
         </div>
 
         {/* AI Suggestions Section */}
-        {analysis && (
+        {analysis && analysis.isValidCV !== false && (
           <div className="mt-8">
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-4">
@@ -368,25 +459,35 @@ export default function CVAnalysisProPage() {
         {analysis && (
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Strengths */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Strengths</h3>
-              <div className="space-y-3">
-                {analysis.strengths.map((strength, idx) => (
-                  <div key={idx} className="flex gap-3">
-                    <span className="text-green-500 font-bold text-lg">✓</span>
-                    <p className="text-gray-700 dark:text-gray-300">{strength}</p>
-                  </div>
-                ))}
+            {analysis.strengths.length > 0 && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Strengths</h3>
+                <div className="space-y-3">
+                  {analysis.strengths.map((strength, idx) => (
+                    <div key={idx} className="flex gap-3">
+                      <span className="text-green-500 font-bold text-lg">✓</span>
+                      <p className="text-gray-700 dark:text-gray-300">{strength}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Improvements */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Areas for Improvement</h3>
+            <div className={`rounded-xl shadow-lg p-6 ${
+              analysis.isValidCV === false 
+                ? 'bg-red-50 dark:bg-red-900/20' 
+                : 'bg-white dark:bg-slate-800'
+            }`}>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                {analysis.isValidCV === false ? 'Issues Found' : 'Areas for Improvement'}
+              </h3>
               <div className="space-y-3">
                 {analysis.improvements.map((improvement, idx) => (
                   <div key={idx} className="flex gap-3">
-                    <span className="text-orange-500 font-bold text-lg">→</span>
+                    <span className={`font-bold text-lg ${
+                      analysis.isValidCV === false ? 'text-red-500' : 'text-orange-500'
+                    }`}>→</span>
                     <p className="text-gray-700 dark:text-gray-300">{improvement}</p>
                   </div>
                 ))}
@@ -397,12 +498,14 @@ export default function CVAnalysisProPage() {
 
         {/* Action Buttons */}
         <div className="flex gap-4 mt-8">
-          <Button
-            onClick={() => router.push("/enhance-cv")}
-            className="flex-1 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white font-bold"
-          >
-            Enhance CV
-          </Button>
+          {analysis?.isValidCV !== false && (
+            <Button
+              onClick={() => router.push("/enhance-cv")}
+              className="flex-1 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white font-bold"
+            >
+              Enhance CV
+            </Button>
+          )}
           <Button
             onClick={() => router.push("/dashboard")}
             variant="outline"
