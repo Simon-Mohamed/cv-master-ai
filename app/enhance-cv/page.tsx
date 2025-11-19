@@ -1,9 +1,13 @@
+
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import DashboardNav from "@/components/dashboard-nav"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
+import { Loader2, Save, Download, FileText, RefreshCw } from "lucide-react"
+import { useHotkeys } from 'react-hotkeys-hook'
 
 interface LocalUser {
   id: string
@@ -29,46 +33,77 @@ export default function EnhanceCVPage() {
   const [analyzing, setAnalyzing] = useState(false)
   const [enhancing, setEnhancing] = useState(false)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isDraftSaving, setIsDraftSaving] = useState(false)
+  const [keyboardShortcuts] = useState({
+    analyze: 'Ctrl+Enter',
+    enhance: 'Ctrl+E',
+    save: 'Ctrl+S',
+    download: 'Ctrl+D'
+  })
 
-  const API_URL = process.env.NEXT_PUBLIC_ENHANCE_API || "http://127.0.0.1:5006"
-
+  const API_URL = process.env.NEXT_PUBLIC_ENHANCE_API ?? "http://127.0.0.1:5006"
+  
   // Templates state
   const [templates, setTemplates] = useState<Array<{id:string;name:string;colors:string[];fonts:string[]}>>([])
   const [selectedTemplate, setSelectedTemplate] = useState<{id:string;name:string;colors:string[];fonts:string[]}|null>(null)
   const [accentColor, setAccentColor] = useState<string>("#1f3a8a")
   const [fontFamily, setFontFamily] = useState<string>("Inter")
 
+  const previewRef = useRef<HTMLDivElement>(null)
+
   const toggleSection = (key: string) => {
     setHiddenSections(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  useEffect(() => {
-    const userData = localStorage.getItem("cvmaster_user")
-    if (!userData) {
-      router.push("/login")
-      return
+  // Save draft to localStorage
+  const saveDraft = useCallback(async () => {
+    if (!cvText.trim()) return
+    
+    setIsDraftSaving(true)
+    try {
+      const draft = {
+        cvText,
+        lastSaved: new Date().toISOString(),
+        analysis: lastAnalysis ? {
+          strengths,
+          improvements,
+          atsScore,
+          overallScore
+        } : null
+      }
+      localStorage.setItem('cvDraft', JSON.stringify(draft))
+      setHasUnsavedChanges(false)
+      toast.success('Draft saved successfully')
+    } catch (error) {
+      console.error('Failed to save draft:', error)
+      toast.error('Failed to save draft')
+    } finally {
+      setIsDraftSaving(false)
     }
-    setUser(JSON.parse(userData))
-    setLoading(false)
-  }, [router])
+  }, [cvText, lastAnalysis, strengths, improvements, atsScore, overallScore])
 
-  useEffect(() => {
-    // fetch templates
-    const load = async () => {
-      try {
-        const res = await fetch(`${API_URL}/templates`)
-        const data = await res.json()
-        const list = data.templates || []
-        setTemplates(list)
-        if (list.length) {
-          setSelectedTemplate(list[0])
-          setAccentColor(list[0].colors?.[0] || "#1f3a8a")
-          setFontFamily(list[0].fonts?.[0] || "Inter")
+  // Load draft from localStorage
+  const loadDraft = useCallback(() => {
+    try {
+      const draft = localStorage.getItem('cvDraft')
+      if (draft) {
+        const parsed = JSON.parse(draft)
+        setCVText(parsed.cvText || '')
+        if (parsed.analysis) {
+          setStrengths(parsed.analysis.strengths || [])
+          setImprovements(parsed.analysis.improvements || [])
+          setAtsScore(parsed.analysis.atsScore || null)
+          setOverallScore(parsed.analysis.overallScore || null)
         }
-      } catch {}
+        toast.success('Draft loaded successfully')
+        return true
+      }
+    } catch (error) {
+      console.error('Failed to load draft:', error)
     }
-    load()
-  }, [API_URL])
+    return false
+  }, [])
 
   // Helper to stringify mixed values from LLM
   const toLine = (item: any): string => {
@@ -109,7 +144,6 @@ export default function EnhanceCVPage() {
       bullets: string[]
     }> = []
 
-    // Find the experience section
     const expKeywords = ['experience', 'work history', 'employment', 'professional experience', 'career history']
     let expStartIdx = -1
     
@@ -121,50 +155,36 @@ export default function EnhanceCVPage() {
       }
     }
 
-    // If no explicit section found, start from beginning
     if (expStartIdx === -1) expStartIdx = 0
 
     let currentExp: any = null
-    let endSections = ['education', 'skills', 'languages', 'certifications', 'training', 'projects', 'awards']
+    const endSections = ['education', 'skills', 'languages', 'certifications', 'training', 'projects', 'awards']
 
     for (let i = expStartIdx; i < lines.length; i++) {
       const line = lines[i]
       const lineLower = line.toLowerCase()
 
-      // Stop if we hit another major section
       if (endSections.some(s => lineLower === s || (lineLower.startsWith(s) && line.length < 30))) {
         break
       }
 
-      // Pattern 1: "Job Title at Company Name | Date Range"
       const pattern1 = line.match(/^(.+?)\s+(?:at|@|-|–)\s+(.+?)\s*[|•]\s*(.+)$/i)
-      
-      // Pattern 2: "Job Title - Company Name (Date Range)"
       const pattern2 = line.match(/^(.+?)\s*[-–]\s*(.+?)\s*\((.+?)\)$/i)
-      
-      // Pattern 3: Date range with company/title
       const datePattern = /(\d{1,2}\/\d{4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4})\s*[-–—to]\s*(?:Present|Current|(\d{1,2}\/\d{4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}))/i
-      
-      // Pattern 4: "Duration: X - Y" on separate line
       const durationPattern = /^(?:Duration|Period|Date|Dates?):\s*(.+)$/i
       
-      // Check if line contains a date range
       const hasDate = datePattern.test(line)
-      
-      // Check for duration line (saves to current experience)
       const durationMatch = line.match(durationPattern)
+      
       if (durationMatch && currentExp) {
         currentExp.period = durationMatch[1].trim()
         continue
       }
 
-      // Match patterns
       if (pattern1) {
-        // Save previous experience
         if (currentExp && (currentExp.company || currentExp.title)) {
           experiences.push(currentExp)
         }
-        
         currentExp = {
           title: pattern1[1].trim(),
           company: pattern1[2].trim(),
@@ -176,7 +196,6 @@ export default function EnhanceCVPage() {
         if (currentExp && (currentExp.company || currentExp.title)) {
           experiences.push(currentExp)
         }
-        
         currentExp = {
           title: pattern2[1].trim(),
           company: pattern2[2].trim(),
@@ -185,16 +204,12 @@ export default function EnhanceCVPage() {
           bullets: []
         }
       } else if (hasDate && line.length > 20) {
-        // This might be a company/title line with embedded date
         if (currentExp && (currentExp.company || currentExp.title)) {
           experiences.push(currentExp)
         }
-        
         const dateMatch = line.match(datePattern)
         const period = dateMatch ? dateMatch[0] : ''
         const remainingText = line.replace(datePattern, '').trim()
-        
-        // Try to split remaining text into title and company
         const parts = remainingText.split(/[-–—|@]/).map(p => p.trim()).filter(Boolean)
         
         currentExp = {
@@ -205,26 +220,19 @@ export default function EnhanceCVPage() {
           bullets: []
         }
       } else if (currentExp && (line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.match(/^\d+\./))) {
-        // This is a bullet point
         const bullet = line.replace(/^[•\-*\d.]\s*/, '').trim()
         if (bullet.length > 5) {
           currentExp.bullets.push(bullet)
         }
       } else if (currentExp && line.length > 20 && !line.match(/^[A-Z\s]+$/) && currentExp.bullets.length > 0) {
-        // Continuation of previous bullet or new bullet without marker
         if (line.match(/^[A-Z]/) && !line.endsWith('.')) {
-          // Likely a new bullet
           currentExp.bullets.push(line.trim())
         } else {
-          // Continuation of last bullet
           const lastIdx = currentExp.bullets.length - 1
           currentExp.bullets[lastIdx] += ' ' + line.trim()
         }
       } else if (!currentExp && line.length > 10 && line.length < 100) {
-        // Might be a company or title line without clear pattern
-        // Check next few lines for context
         const nextLine = lines[i + 1] || ''
-        const nextNextLine = lines[i + 2] || ''
         
         if (nextLine.match(durationPattern) || nextLine.match(datePattern)) {
           currentExp = {
@@ -235,7 +243,6 @@ export default function EnhanceCVPage() {
             bullets: []
           }
         } else if (nextLine.startsWith('•') || nextLine.startsWith('-')) {
-          // Next line is bullets, this is likely title or company
           currentExp = {
             title: line.trim(),
             company: '',
@@ -247,12 +254,10 @@ export default function EnhanceCVPage() {
       }
     }
 
-    // Don't forget the last experience
     if (currentExp && (currentExp.company || currentExp.title)) {
       experiences.push(currentExp)
     }
 
-    // Clean up and validate
     return experiences
       .filter(exp => exp.company || exp.title || exp.bullets.length > 0)
       .map(exp => ({
@@ -263,12 +268,11 @@ export default function EnhanceCVPage() {
         bullets: exp.bullets.length > 0 ? exp.bullets : ['Add job responsibilities here']
       }))
   }
-    // Client-side fallback extraction in case backend misses fields
+
   const deriveFromText = (text: string) => {
     const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
     const res: any = {}
     
-    // name: first line with two words, no digits/@
     for (const l of lines.slice(0,6)) {
       if (/@|\d/.test(l)) continue
       if (/^[A-Za-z]{2,}(\s+[A-Za-z\-']{2,})+/.test(l)) { res.name = l; break }
@@ -281,7 +285,6 @@ export default function EnhanceCVPage() {
     const address = text.match(/(?:\d+\s+[A-Za-z\s,]+\s+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr)\s*,?\s*[A-Za-z\s,]+(?:\d{5})?)/)
     if (address) res.address = address[0]
     
-    // education: look for degree keywords
     const eduKeywords = ['Bachelor', 'Master', 'PhD', 'Doctor', 'Bachelor\'s', 'Master\'s', 'BSc', 'MSc', 'MBA', 'BS', 'MS']
     for (const l of lines) {
       if (eduKeywords.some(k => l.includes(k))) {
@@ -290,9 +293,8 @@ export default function EnhanceCVPage() {
       }
     }
     
-    // languages: look for common language names
-    const langs = []
-    const langKeywords = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Chinese', 'Japanese', 'Korean', 'Russian', 'Arabic', 'Hindi', 'Turkish', 'Dutch', 'Swedish', 'Norwegian', 'Danish', 'Finnish', 'Polish', 'Czech', 'Hungarian', 'Romanian', 'Bulgarian', 'Croatian', 'Serbian', 'Slovak', 'Slovenian', 'Estonian', 'Latvian', 'Lithuanian', 'Greek', 'Hebrew', 'Thai', 'Vietnamese', 'Indonesian', 'Malay', 'Tagalog', 'Urdu', 'Bengali', 'Tamil', 'Telugu', 'Marathi', 'Gujarati', 'Kannada', 'Malayalam', 'Punjabi', 'Nepali', 'Sinhala', 'Burmese', 'Khmer', 'Lao', 'Tibetan', 'Mongolian', 'Armenian', 'Georgian', 'Azerbaijani', 'Kazakh', 'Kyrgyz', 'Tajik', 'Turkmen', 'Uzbek', 'Uighur']
+    const langs: string[] = []
+    const langKeywords = ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Chinese', 'Japanese', 'Korean', 'Russian', 'Arabic']
     for (const l of lines) {
       if (langKeywords.some(k => l.includes(k))) {
         langs.push(l)
@@ -300,7 +302,6 @@ export default function EnhanceCVPage() {
     }
     if (langs.length > 0) res.languages = langs
     
-    // Use the new work experience extraction
     const experienceEntries = extractWorkExperience(text)
     if (experienceEntries.length > 0) {
       res.experienceEntries = experienceEntries
@@ -309,9 +310,9 @@ export default function EnhanceCVPage() {
     return res
   }
 
-  const analyzeWithText = async (text: string) => {
+  const analyzeWithText = useCallback(async (text: string) => {
     if (!text.trim()) {
-      alert("Please paste your CV text")
+      toast.error("Please paste your CV text")
       return
     }
 
@@ -325,7 +326,6 @@ export default function EnhanceCVPage() {
       const data = await res.json()
       if (!data.success) throw new Error(data.error || "Analyze failed")
       let r = data.result || {}
-      // Merge client-side fallbacks from text
       const local = deriveFromText(text)
       r = { ...local, ...r }
       setLastAnalysis(r)
@@ -334,22 +334,21 @@ export default function EnhanceCVPage() {
       setAtsScore(typeof r.atsScore === "number" ? r.atsScore : null)
       setOverallScore(typeof r.overallScore === "number" ? r.overallScore : null)
     } catch (e: any) {
-      alert(e.message || "Analyze request failed")
+      toast.error(e.message || "Analyze request failed")
     } finally {
       setAnalyzing(false)
     }
-  }
+  }, [API_URL])
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = useCallback(async () => {
     await analyzeWithText(cvText)
-  }
+  }, [cvText, analyzeWithText])
 
   const handleEnhance = async () => {
     if (!cvText.trim()) {
-      alert("Please paste your CV text")
+      toast.error("Please paste your CV text")
       return
     }
-    // Ensure we have analysis (for contact/education)
     if (!lastAnalysis) {
       await analyzeWithText(cvText)
     }
@@ -363,22 +362,15 @@ export default function EnhanceCVPage() {
       const data = await res.json()
       if (!data.success) throw new Error(data.error || "Enhance failed")
       const ecv = data.enhanced || {}
-      // seed structured experience entries from any bullets the model produced
-      const seededEntries = []
-      const expBullets = toArray(ecv?.experience)
-      if (expBullets.length > 0) {
-        seededEntries.push({ company: '', title: '', period: '', location: '', bullets: expBullets })
-      }
+      // Use experienceEntries from backend if available
+      const experienceEntries = ecv?.experienceEntries || []
       
-      // Merge client-side fallback from text
       const local = deriveFromText(cvText)
-      
-      // Use extracted experiences if available, otherwise use seeded entries
-      const experienceEntries = local.experienceEntries || seededEntries
+      const finalExperienceEntries = experienceEntries.length > 0 ? experienceEntries : local.experienceEntries || []
       
       setEnhancedData({ 
         ...ecv, 
-        experienceEntries,
+        experienceEntries: finalExperienceEntries,
         languages: ecv.languages || local.languages || []
       })
       const lines: string[] = []
@@ -389,7 +381,6 @@ export default function EnhanceCVPage() {
         if (typeof item === "number") return String(item)
         if (Array.isArray(item)) return item.map(itemToString).join(", ")
         if (typeof item === "object") {
-          // Prefer common keys from LLM outputs
           const preferred = item.text || item.bullet || item.description || item.title
           if (preferred) return String(preferred)
           try { return Object.values(item).map(itemToString).join(" — ") } catch { return "" }
@@ -414,287 +405,203 @@ export default function EnhanceCVPage() {
       }
       setEnhancedCV(lines.join("\n"))
     } catch (e: any) {
-      alert(e.message || "Enhance request failed")
+      toast.error(e.message || "Enhance request failed")
     } finally {
       setEnhancing(false)
     }
   }
 
-  const handleDownload = () => {
-    const element = document.createElement("a")
-    const file = new Blob([enhancedCV], { type: "text/plain" })
-    element.href = URL.createObjectURL(file)
-    element.download = "enhanced-cv.txt"
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
-  }
-
-  // PDF download (client-side) using html2pdf.js
-  const previewRef = useRef<HTMLDivElement>(null)
-  const ensureHtml2Pdf = async (): Promise<void> => {
-    if (typeof window === 'undefined') return
-    // quick happy-path
-    // @ts-ignore
-    if ((window as any).html2pdf || (window as any).html2pdf?.default) return
-    const sources = [
-      '/vendor/html2pdf.bundle.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
-      'https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js',
-      'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js'
-    ]
-    let lastErr: any = null
-    for (const src of sources) {
-      try {
-        console.log('[PDF] Attempting to load', src)
-        await new Promise<void>((resolve, reject) => {
-          const s = document.createElement('script')
-          s.src = src
-          s.async = true
-          s.crossOrigin = 'anonymous'
-          s.onload = () => { console.log('[PDF] Loaded', src); resolve() }
-          s.onerror = () => { console.error('[PDF] Failed to load', src); reject(new Error('Failed to load ' + src)) }
-          document.head.appendChild(s)
-        })
-        // wait a tick for global to attach
-        await new Promise(r=>setTimeout(r, 0))
-        // @ts-ignore
-        if ((window as any).html2pdf || (window as any).html2pdf?.default) { console.log('[PDF] html2pdf available after', src); return }
-      } catch (e) {
-        lastErr = e
-      }
-    }
-    // After attempting all sources, ensure it's actually available
-    // @ts-ignore
-    if ((window as any).html2pdf) return
-    if (lastErr) throw lastErr
-    throw new Error('html2pdf library failed to load')
-  }
-  const handleDownloadPdf = async () => {
-    let originalWarn: typeof console.warn = console.warn
+  const handleDownload = useCallback(() => {
     try {
-      console.log('[PDF] Download clicked')
-      setDownloadingPdf(true)
-      console.warn = (...args: any[]) => {
-        try {
-          if (args && args.length && typeof args[0] === 'string' && args[0].includes('oklch')) {
-            return
-          }
-        } catch {}
-        return originalWarn.apply(console, args as any)
+      const content = enhancedCV || cvText
+      if (!content) {
+        toast.error("No content to download")
+        return
       }
-      await ensureHtml2Pdf()
-      // @ts-ignore
-      const g = (window as any).html2pdf?.default || (window as any).html2pdf
-      console.log('[PDF] html2pdf type:', typeof g)
-      console.log('[PDF] previewRef set:', !!previewRef.current)
-      if (!previewRef.current) throw new Error('Nothing to export yet')
-      if (document && (document as any).fonts && typeof (document as any).fonts.ready?.then === 'function') {
-        await (document as any).fonts.ready
+      
+      const element = document.createElement("a")
+      const now = new Date().toISOString().split('T')[0]
+      const filename = `cv-${now}${enhancedCV ? '-enhanced' : ''}.txt`
+      
+      const file = new Blob([content], { type: "text/plain;charset=utf-8" })
+      element.href = URL.createObjectURL(file)
+      element.download = filename
+      
+      document.body.appendChild(element)
+      element.click()
+      document.body.removeChild(element)
+      
+      toast.success("CV downloaded successfully")
+    } catch (error) {
+      console.error("Download failed:", error)
+      toast.error("Failed to download CV")
+    }
+  }, [cvText, enhancedCV])
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!enhancedData && !lastAnalysis) {
+      toast.error("Please analyze or enhance your CV first")
+      return
+    }
+
+    setDownloadingPdf(true)
+    try {
+      const cvData = {
+        name: lastAnalysis?.name || enhancedData?.name || '',
+        email: lastAnalysis?.email || enhancedData?.email || '',
+        phone: lastAnalysis?.phone || enhancedData?.phone || '',
+        address: lastAnalysis?.address || enhancedData?.address || '',
+        linkedin: lastAnalysis?.linkedin || enhancedData?.linkedin || '',
+        summary: enhancedData?.summary || '',
+        experienceEntries: enhancedData?.experienceEntries || [],
+        skills: enhancedData?.skills || lastAnalysis?.skills || [],
+        education: enhancedData?.education || lastAnalysis?.education || [],
+        languages: enhancedData?.languages || lastAnalysis?.languages || [],
+        certifications: enhancedData?.certifications || lastAnalysis?.certifications || [],
+        projects: enhancedData?.projects || lastAnalysis?.projects || []
       }
-      await new Promise(r=>setTimeout(r,50))
-      // @ts-ignore resolve global or default export
-      const h2p = (window as any).html2pdf?.default || (window as any).html2pdf
-      if (!h2p || typeof h2p !== 'function') {
-        throw new Error('PDF generator not available (html2pdf not loaded)')
-      }
-      console.log('[PDF] Starting html2pdf toPdf pipeline')
-      await new Promise<void>((resolve, reject) => {
-        try {
-          h2p()
-            .set({
-              margin: 0,
-              filename: 'cv.pdf',
-              image: { type: 'jpeg', quality: 0.98 },
-              html2canvas: { 
-                scale: 2, 
-                useCORS: true, 
-                backgroundColor: '#ffffff', 
-                scrollX: 0, 
-                scrollY: 0,
-                logging: false,
-                onclone: (clonedDoc: Document) => {
-                  try {
-                    const root = clonedDoc.getElementById('pdf-preview')
-                    if (!root) return
-                    const win = clonedDoc.defaultView
-                    if (!win) return
-                    const props = [
-                      'color', 'backgroundColor',
-                      'borderTopColor','borderRightColor','borderBottomColor','borderLeftColor',
-                      'outlineColor','textDecorationColor','columnRuleColor'
-                    ]
-                    const svgProps = ['fill','stroke']
-                    const all = root.querySelectorAll<HTMLElement | SVGElement>('*')
-                    all.forEach((el:any) => {
-                      const cs = win.getComputedStyle(el as Element)
-                      // Fix shorthands that may embed oklch in gradients or combined props
-                      const bg = cs.background
-                      if (bg && typeof bg === 'string' && bg.includes('oklch')) {
-                        (el as HTMLElement).style.setProperty('background-image', 'none', 'important')
-                        ;(el as HTMLElement).style.setProperty('background-color', '#fff', 'important')
-                      }
-                      const border = cs.border
-                      if (border && typeof border === 'string' && border.includes('oklch')) {
-                        ;(el as HTMLElement).style.setProperty('border-color', (accentColor || '#1f3a8a'), 'important')
-                      }
-                      const outline = cs.outline
-                      if (outline && typeof outline === 'string' && outline.includes('oklch')) {
-                        ;(el as HTMLElement).style.setProperty('outline-color', (accentColor || '#1f3a8a'), 'important')
-                      }
-                      const boxShadow = cs.boxShadow
-                      if (boxShadow && typeof boxShadow === 'string' && boxShadow.includes('oklch')) {
-                        ;(el as HTMLElement).style.setProperty('box-shadow', 'none', 'important')
-                      }
-                      props.forEach(p => {
-                        const v = (cs as any)[p]
-                        if (v && typeof v === 'string' && v.includes('oklch')) {
-                          const cssName = p.replace(/[A-Z]/g, m=>'-'+m.toLowerCase())
-                          let fallback: string = '#000'
-                          if (p === 'backgroundColor') {
-                            fallback = '#fff'
-                          } else if (p.startsWith('border') || p === 'outlineColor' || p === 'textDecorationColor' || p === 'columnRuleColor') {
-                            fallback = accentColor || '#1f3a8a'
-                          }
-                          (el as HTMLElement).style.setProperty(cssName, fallback, 'important')
-                        }
-                      })
-                      svgProps.forEach(p => {
-                        const v = (cs as any)[p as any]
-                        if (v && typeof v === 'string' && v.includes('oklch')) {
-                          const svgFallback: string = (p === 'fill' || p === 'stroke') ? (accentColor || '#1f3a8a') : '#000'
-                          ;(el as HTMLElement).style.setProperty(p, svgFallback, 'important')
-                        }
-                      })
-                    })
-                  } catch (e) {
-                    console.warn('[PDF] onclone sanitize failed', e)
-                  }
-                }
-              },
-              pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-              jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            })
-            .from(previewRef.current)
-            .toPdf()
-            .get('pdf')
-            .then((pdf: any) => {
-              console.log('[PDF] Got pdf instance, saving')
-              pdf.save('cv.pdf')
-              resolve()
-            })
-            .catch((err: any) => {
-              console.warn('[PDF] toPdf/get pipeline failed, falling back:', err)
-              reject(err)
-            })
-        } catch (err) {
-          reject(err as any)
-        }
-      }).catch(async () => {
-        // Fallback: output blob URL and manual download
-        try {
-          console.log('[PDF] Fallback: output blob url')
-          const blobUrl = await h2p()
-            .set({
-              margin: 0,
-              image: { type: 'jpeg', quality: 0.98 },
-              html2canvas: { 
-                scale: 2, 
-                useCORS: true, 
-                backgroundColor: '#ffffff', 
-                scrollX: 0, 
-                scrollY: 0,
-                logging: false,
-                onclone: (clonedDoc: Document) => {
-                  try {
-                    const root = clonedDoc.getElementById('pdf-preview')
-                    if (!root) return
-                    const win = clonedDoc.defaultView
-                    if (!win) return
-                    const props = [
-                      'color', 'backgroundColor',
-                      'borderTopColor','borderRightColor','borderBottomColor','borderLeftColor',
-                      'outlineColor','textDecorationColor','columnRuleColor'
-                    ]
-                    const svgProps = ['fill','stroke']
-                    const all = root.querySelectorAll<HTMLElement | SVGElement>('*')
-                    all.forEach((el:any) => {
-                      const cs = win.getComputedStyle(el as Element)
-                      props.forEach(p => {
-                        const v = (cs as any)[p]
-                        if (v && typeof v === 'string' && v.includes('oklch')) {
-                          const cssName = p.replace(/[A-Z]/g, m=>'-'+m.toLowerCase())
-                          let fallback: string = '#000'
-                          if (p === 'backgroundColor') {
-                            fallback = '#fff'
-                          } else if (p.startsWith('border') || p === 'outlineColor' || p === 'textDecorationColor' || p === 'columnRuleColor') {
-                            fallback = accentColor || '#1f3a8a'
-                          }
-                          (el as HTMLElement).style.setProperty(cssName, fallback, 'important')
-                        }
-                      })
-                      svgProps.forEach(p => {
-                        const v = (cs as any)[p as any]
-                        if (v && typeof v === 'string' && v.includes('oklch')) {
-                          const svgFallback: string = (p === 'fill' || p === 'stroke') ? (accentColor || '#1f3a8a') : '#000'
-                          ;(el as HTMLElement).style.setProperty(p, svgFallback, 'important')
-                        }
-                      })
-                    })
-                  } catch (e) {
-                    console.warn('[PDF] onclone sanitize failed', e)
-                  }
-                }
-              },
-              pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-              jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            })
-            .from(previewRef.current)
-            .outputPdf('bloburl')
-          const a = document.createElement('a')
-          a.href = blobUrl
-          a.download = 'cv.pdf'
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-        } catch (err) {
-          console.error('[PDF] Fallback failed:', err)
-          throw err
-        }
+
+      const response = await fetch(`${API_URL}/generate-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cv_data: cvData,
+          template_id: selectedTemplate?.id || 'smart',
+          accent_color: accentColor || '#1f3a8a'
+        }),
       })
-    } catch (e:any) {
-      console.error('[PDF] Export failed:', e)
-      try {
-        if (previewRef.current) {
-          console.log('[PDF] Trying print() fallback')
-          const style = document.createElement('style')
-          style.setAttribute('data-pdf-print-style', 'true')
-          style.media = 'print'
-          style.innerHTML = `
-            @page { size: A4 portrait; margin: 0; }
-            html, body { background: #ffffff; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            body * { visibility: hidden !important; }
-            #pdf-preview, #pdf-preview * { visibility: visible !important; }
-            #pdf-preview { position: absolute; left: 0; top: 0; width: 794px; margin: 0 !important; }
-          `
-          document.head.appendChild(style)
-          window.print()
-          setTimeout(() => { try { style.remove() } catch {} }, 1000)
-        }
-      } catch (pfErr) {
-        console.error('[PDF] Print fallback failed:', pfErr)
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error || 'Failed to generate PDF')
       }
-      // No alert: avoid surfacing cosmetic warnings to users
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const now = new Date()
+      const fileName = `cv-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}.pdf`
+      
+      link.href = url
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      toast.success("PDF downloaded successfully")
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to generate PDF')
     } finally {
-      // restore console.warn
-      try { console.warn = originalWarn } catch {}
       setDownloadingPdf(false)
     }
-  }
+  }, [enhancedData, lastAnalysis, selectedTemplate, accentColor, API_URL])
+
+  // Keyboard shortcuts
+  useHotkeys(keyboardShortcuts.analyze, (e) => {
+    e.preventDefault()
+    handleAnalyze()
+  }, { enableOnFormTags: ['TEXTAREA', 'INPUT'] })
+
+  useHotkeys(keyboardShortcuts.enhance, (e) => {
+    e.preventDefault()
+    handleEnhance()
+  }, { enableOnFormTags: ['TEXTAREA', 'INPUT'] })
+
+  useHotkeys(keyboardShortcuts.save, (e) => {
+    e.preventDefault()
+    saveDraft()
+  }, { enableOnFormTags: ['TEXTAREA', 'INPUT'] })
+
+  useHotkeys(keyboardShortcuts.download, (e) => {
+    e.preventDefault()
+    if (enhancedCV) {
+      handleDownload()
+    } else if (cvText) {
+      handleDownload()
+    }
+  }, { enableOnFormTags: ['TEXTAREA', 'INPUT'] })
+
+  // Auto-save draft
+  useEffect(() => {
+    if (hasUnsavedChanges && cvText) {
+      const timer = setTimeout(() => {
+        saveDraft()
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [cvText, hasUnsavedChanges, saveDraft])
+
+  // Load templates
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_URL}/templates`)
+        const data = await res.json()
+        const list = data.templates || []
+        setTemplates(list)
+        if (list.length) {
+          setSelectedTemplate(list[0])
+          setAccentColor(list[0].colors?.[0] || "#1f3a8a")
+          setFontFamily(list[0].fonts?.[0] || "Inter")
+        }
+      } catch {}
+    }
+    load()
+  }, [API_URL])
+
+  // User authentication
+  useEffect(() => {
+    const userData = localStorage.getItem("cvmaster_user")
+    if (!userData) {
+      router.push("/login")
+      return
+    }
+    setUser(JSON.parse(userData))
+    setLoading(false)
+  }, [router])
+
+  // Load draft on mount
+  useEffect(() => {
+    if (!loading && user) {
+      const hasDraft = loadDraft()
+      if (hasDraft) {
+        setHasUnsavedChanges(true)
+      }
+    }
+  }, [loading, user, loadDraft])
+
+  // Warn before leaving
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  // Track changes
+  useEffect(() => {
+    setHasUnsavedChanges(true)
+  }, [cvText])
 
   if (loading || !user) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -709,7 +616,6 @@ export default function EnhanceCVPage() {
           </p>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Input Section */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-primary">Your CV</h2>
               <div className="flex items-center gap-3">
@@ -730,12 +636,11 @@ export default function EnhanceCVPage() {
                       if (!data.success) throw new Error(data.error || "Upload failed")
                       const text = data.text || ""
                       setCVText(text)
-                      // Auto-analyze right after upload to fill contact/education
                       if (text) {
                         await analyzeWithText(text)
                       }
                     } catch (err: any) {
-                      alert(err.message || "Failed to extract text from file")
+                      toast.error(err.message || "Failed to extract text from file")
                     }
                   }}
                   className="block text-sm"
@@ -748,20 +653,77 @@ export default function EnhanceCVPage() {
                 className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent h-96"
                 placeholder="Paste your CV text here..."
               />
-              <div className="grid grid-cols-2 gap-3">
-                <Button onClick={handleAnalyze} disabled={analyzing} className="w-full bg-accent hover:bg-accent/90">
-                  {analyzing ? "Analyzing..." : "Analyze"}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Button 
+                  onClick={handleAnalyze} 
+                  disabled={analyzing || !cvText.trim()} 
+                  className="w-full bg-accent hover:bg-accent/90"
+                >
+                  {analyzing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Analyze CV
+                    </>
+                  )}
                 </Button>
-                <Button onClick={handleEnhance} disabled={enhancing} variant="secondary" className="w-full">
-                  {enhancing ? "Enhancing..." : "Enhance CV"}
+                <Button 
+                  onClick={handleEnhance} 
+                  disabled={enhancing || !cvText.trim()} 
+                  variant="secondary" 
+                  className="w-full"
+                >
+                  {enhancing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enhancing...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Enhance CV
+                    </>
+                  )}
                 </Button>
+                <Button 
+                  onClick={saveDraft} 
+                  disabled={isDraftSaving || !cvText.trim()}
+                  variant="outline" 
+                  className="w-full"
+                >
+                  {isDraftSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Draft
+                    </>
+                  )}
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground text-center">
+                Keyboard shortcuts: {keyboardShortcuts.analyze} to analyze, {keyboardShortcuts.enhance} to enhance, {keyboardShortcuts.save} to save
               </div>
             </div>
 
-            {/* Suggestions Section */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-primary">AI Suggestions</h2>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-5 h-96 overflow-y-auto">
+                {!cvText.trim() && (
+                  <div className="h-full flex items-center justify-center text-center p-4">
+                    <div>
+                      <p className="text-muted-foreground mb-4">No CV content to analyze yet.</p>
+                      <p className="text-sm text-muted-foreground">Paste your CV text or upload a file to get started.</p>
+                    </div>
+                  </div>
+                )}
                 {(strengths.length + improvements.length) > 0 ? (
                   <>
                     <div>
@@ -794,33 +756,55 @@ export default function EnhanceCVPage() {
             </div>
           </div>
 
-          {/* Enhanced CV Preview */}
           {enhancedCV && (
             <div className="mt-8 pt-8 border-t border-border">
               <h2 className="text-xl font-semibold text-primary mb-4">Template & Preview</h2>
-              {/* Templates chooser */}
               <div className="flex flex-wrap gap-3 mb-4">
                 {templates.map((t) => (
                   <button
                     key={t.id}
-                    onClick={() => { setSelectedTemplate(t); setAccentColor(t.colors?.[0] || accentColor); setFontFamily(t.fonts?.[0] || fontFamily) }}
+                    onClick={() => { 
+                      setSelectedTemplate(t)
+                      setAccentColor(t.colors?.[0] || accentColor)
+                      setFontFamily(t.fonts?.[0] || fontFamily)
+                    }}
                     className={`px-3 py-2 border rounded text-sm ${selectedTemplate?.id === t.id ? 'border-blue-600' : 'border-border'}`}
-                  >{t.name}</button>
+                  >
+                    {t.name}
+                  </button>
                 ))}
                 {selectedTemplate && (
                   <>
-                    <select className="border rounded px-2 py-1 text-sm" value={fontFamily} onChange={(e)=>setFontFamily(e.target.value)}>
+                    <select 
+                      className="border rounded px-2 py-1 text-sm" 
+                      value={fontFamily} 
+                      onChange={(e)=>setFontFamily(e.target.value)}
+                    >
                       {selectedTemplate.fonts.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
-                    <select className="border rounded px-2 py-1 text-sm" value={accentColor} onChange={(e)=>setAccentColor(e.target.value)}>
+                    <select 
+                      className="border rounded px-2 py-1 text-sm" 
+                      value={accentColor} 
+                      onChange={(e)=>setAccentColor(e.target.value)}
+                    >
                       {selectedTemplate.colors.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </>
                 )}
               </div>
 
-              {/* Structured preview with inline editing */}
-              <div id="pdf-preview" ref={previewRef} className="border border-border rounded-lg p-6 space-y-5 bg-white" style={{ fontFamily, borderColor: accentColor, width: '794px', margin: '0 auto', backgroundColor: '#ffffff' }}>
+              <div 
+                id="pdf-preview" 
+                ref={previewRef} 
+                className="border border-border rounded-lg p-6 space-y-5 bg-white" 
+                style={{ 
+                  fontFamily, 
+                  borderColor: accentColor, 
+                  width: '794px', 
+                  margin: '0 auto', 
+                  backgroundColor: '#ffffff' 
+                }}
+              >
                 <div className="mb-2">
                   <input
                     className="font-extrabold text-3xl tracking-wide outline-none w-full uppercase"
@@ -845,127 +829,252 @@ export default function EnhanceCVPage() {
                   </div>
                 </div>
 
-                {/* CONTACT INFORMATION */}
                 {!hiddenSections['contact'] && (
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-xs tracking-wider px-3 py-1 border" style={{ borderColor: accentColor, color: accentColor }}>CONTACT INFORMATION</div>
-                    <Button size="sm" variant="ghost" onClick={()=>toggleSection('contact')}>Hide</Button>
-                  </div>
-                  <div className="bg-gray-50 p-3 border-b border-l border-r" style={{ borderColor: accentColor }}>
-                    <ul className="list-disc pl-5 space-y-1 text-sm">
-                      <li>
-                        <span className="font-semibold">Phone: </span>
-                        <input className="outline-none" placeholder="Phone" value={lastAnalysis?.phone || ''} onChange={(e)=> setLastAnalysis({ ...lastAnalysis, phone: e.target.value })} />
-                      </li>
-                      <li>
-                        <span className="font-semibold">Email: </span>
-                        <input className="outline-none" placeholder="Email" value={lastAnalysis?.email || ''} onChange={(e)=> setLastAnalysis({ ...lastAnalysis, email: e.target.value })} />
-                      </li>
-                      <li>
-                        <span className="font-semibold">Address: </span>
-                        <input className="outline-none w-3/4" placeholder="Address" value={lastAnalysis?.address || ''} onChange={(e)=> setLastAnalysis({ ...lastAnalysis, address: e.target.value })} />
-                      </li>
-                      <li>
-                        <span className="font-semibold">LinkedIn: </span>
-                        <input className="outline-none w-3/4" placeholder="LinkedIn" value={lastAnalysis?.linkedin || ''} onChange={(e)=> setLastAnalysis({ ...lastAnalysis, linkedin: e.target.value })} />
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-                )}
-
-                {/* PROFESSIONAL SUMMARY */}
-                {!hiddenSections['summary'] && (
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-xs tracking-wider px-3 py-1 border" style={{ borderColor: accentColor, color: accentColor }}>{enhancedData?.sectionTitles?.summary || 'PROFESSIONAL SUMMARY'}</div>
-                    <Button size="sm" variant="ghost" onClick={()=>toggleSection('summary')}>Hide</Button>
-                  </div>
-                  <textarea
-                    className="w-full bg-gray-50 rounded-b p-3 text-sm outline-none border-b border-l border-r"
-                    style={{ borderColor: accentColor }}
-                    value={enhancedData?.summary || ''}
-                    onChange={(e)=> setEnhancedData({ ...enhancedData, summary: e.target.value })}
-                    placeholder="Professional summary"
-                  />
-                </div>
-                )}
-
-                {/* EXPERIENCE (structured, full width) */}
-                {!hiddenSections['experience'] && (
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-xs tracking-wider px-3 py-1 border" style={{ borderColor: accentColor, color: accentColor }}>{enhancedData?.sectionTitles?.experience || 'PROFESSIONAL EXPERIENCE'}</div>
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="outline" onClick={()=>{
-                        const next = [...(enhancedData?.experienceEntries||[]), { company:'', title:'', period:'', location:'', bullets:[] }]
-                        setEnhancedData({ ...enhancedData, experienceEntries: next })
-                      }}>Add Experience</Button>
-                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('experience')}>Hide</Button>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div 
+                        className="font-semibold text-xs tracking-wider px-3 py-1 border" 
+                        style={{ borderColor: accentColor, color: accentColor }}
+                      >
+                        CONTACT INFORMATION
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('contact')}>
+                        Hide
+                      </Button>
+                    </div>
+                    <div className="bg-gray-50 p-3 border-b border-l border-r" style={{ borderColor: accentColor }}>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>
+                          <span className="font-semibold">Phone: </span>
+                          <input 
+                            className="outline-none" 
+                            placeholder="Phone" 
+                            value={lastAnalysis?.phone || ''} 
+                            onChange={(e)=> setLastAnalysis({ ...lastAnalysis, phone: e.target.value })} 
+                          />
+                        </li>
+                        <li>
+                          <span className="font-semibold">Email: </span>
+                          <input 
+                            className="outline-none" 
+                            placeholder="Email" 
+                            value={lastAnalysis?.email || ''} 
+                            onChange={(e)=> setLastAnalysis({ ...lastAnalysis, email: e.target.value })} 
+                          />
+                        </li>
+                        <li>
+                          <span className="font-semibold">Address: </span>
+                          <input 
+                            className="outline-none w-3/4" 
+                            placeholder="Address" 
+                            value={lastAnalysis?.address || ''} 
+                            onChange={(e)=> setLastAnalysis({ ...lastAnalysis, address: e.target.value })} 
+                          />
+                        </li>
+                        <li>
+                          <span className="font-semibold">LinkedIn: </span>
+                          <input 
+                            className="outline-none w-3/4" 
+                            placeholder="LinkedIn" 
+                            value={lastAnalysis?.linkedin || ''} 
+                            onChange={(e)=> setLastAnalysis({ ...lastAnalysis, linkedin: e.target.value })} 
+                          />
+                        </li>
+                      </ul>
                     </div>
                   </div>
-                  <div className="space-y-4 border-b border-l border-r rounded-b p-3" style={{ borderColor: accentColor }}>
-                    {(enhancedData?.experienceEntries || []).map((exp: any, idx: number) => (
-                      <div key={idx} className="border rounded p-3 space-y-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          <input className="outline-none border rounded px-2 py-1" placeholder="Company" value={exp.company}
-                            onChange={(e)=>{
-                              const next = [...enhancedData.experienceEntries]; next[idx] = { ...exp, company: e.target.value }; setEnhancedData({ ...enhancedData, experienceEntries: next })
-                            }} />
-                          <input className="outline-none border rounded px-2 py-1" placeholder="Job Title" value={exp.title}
-                            onChange={(e)=>{
-                              const next = [...enhancedData.experienceEntries]; next[idx] = { ...exp, title: e.target.value }; setEnhancedData({ ...enhancedData, experienceEntries: next })
-                            }} />
-                          <input className="outline-none border rounded px-2 py-1" placeholder="Period (e.g., Jan 2024 – Present)" value={exp.period}
-                            onChange={(e)=>{
-                              const next = [...enhancedData.experienceEntries]; next[idx] = { ...exp, period: e.target.value }; setEnhancedData({ ...enhancedData, experienceEntries: next })
-                            }} />
-                          <input className="outline-none border rounded px-2 py-1" placeholder="Location" value={exp.location}
-                            onChange={(e)=>{
-                              const next = [...enhancedData.experienceEntries]; next[idx] = { ...exp, location: e.target.value }; setEnhancedData({ ...enhancedData, experienceEntries: next })
-                            }} />
-                        </div>
-                        <div>
-                          <div className="text-xs mb-1" style={{ color: accentColor }}>Bullets</div>
-                          <ul className="list-disc pl-5 space-y-1">
-                            {(exp.bullets||[]).map((b:string, bi:number)=>(
-                              <li key={bi}>
-                                <input className="w-full outline-none" value={b} onChange={(e)=>{
-                                  const next = [...enhancedData.experienceEntries];
-                                  const xb = [...(exp.bullets||[])]; xb[bi] = e.target.value; next[idx] = { ...exp, bullets: xb };
-                                  setEnhancedData({ ...enhancedData, experienceEntries: next })
-                                }} />
-                              </li>
-                            ))}
-                          </ul>
-                          <div className="flex gap-2 mt-2">
-                            <Button size="sm" variant="secondary" onClick={()=>{
-                              const next = [...enhancedData.experienceEntries];
-                              next[idx] = { ...exp, bullets: [...(exp.bullets||[]), ""] };
-                              setEnhancedData({ ...enhancedData, experienceEntries: next })
-                            }}>Add Bullet</Button>
-                            <Button size="sm" variant="destructive" onClick={()=>{
-                              const next = enhancedData.experienceEntries.filter((_:any,i:number)=>i!==idx)
-                              setEnhancedData({ ...enhancedData, experienceEntries: next })
-                            }}>Remove Experience</Button>
-                          </div>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{exp.company && exp.title ? `${exp.company} — ${exp.title}` : ''} {exp.period || exp.location ? `| ${[exp.period, exp.location].filter(Boolean).join(' | ')}` : ''}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
                 )}
 
-                {/* SKILLS (full width below experience) */}
+                {!hiddenSections['summary'] && (
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div 
+                        className="font-semibold text-xs tracking-wider px-3 py-1 border" 
+                        style={{ borderColor: accentColor, color: accentColor }}
+                      >
+                        {enhancedData?.sectionTitles?.summary || 'PROFESSIONAL SUMMARY'}
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('summary')}>
+                        Hide
+                      </Button>
+                    </div>
+                    <textarea
+                      className="w-full bg-gray-50 rounded-b p-3 text-sm outline-none border-b border-l border-r"
+                      style={{ borderColor: accentColor }}
+                      value={enhancedData?.summary || ''}
+                      onChange={(e)=> setEnhancedData({ ...enhancedData, summary: e.target.value })}
+                      placeholder="Professional summary"
+                      rows={4}
+                    />
+                  </div>
+                )}
+
+                {!hiddenSections['experience'] && (
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div 
+                        className="font-semibold text-xs tracking-wider px-3 py-1 border" 
+                        style={{ borderColor: accentColor, color: accentColor }}
+                      >
+                        {enhancedData?.sectionTitles?.experience || 'PROFESSIONAL EXPERIENCE'}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={()=>{
+                            const next = [...(enhancedData?.experienceEntries||[]), { 
+                              company:'', 
+                              title:'', 
+                              period:'', 
+                              location:'', 
+                              bullets:[] 
+                            }]
+                            setEnhancedData({ ...enhancedData, experienceEntries: next })
+                          }}
+                        >
+                          Add Experience
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={()=>toggleSection('experience')}>
+                          Hide
+                        </Button>
+                      </div>
+                    </div>
+                    <div 
+                      className="space-y-4 border-b border-l border-r rounded-b p-3" 
+                      style={{ borderColor: accentColor }}
+                    >
+                      {(enhancedData?.experienceEntries || []).map((exp: any, idx: number) => (
+                        <div key={idx} className="border rounded p-3 space-y-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <input 
+                              className="outline-none border rounded px-2 py-1" 
+                              placeholder="Company" 
+                              value={exp.company}
+                              onChange={(e)=>{
+                                const next = [...enhancedData.experienceEntries]
+                                next[idx] = { ...exp, company: e.target.value }
+                                setEnhancedData({ ...enhancedData, experienceEntries: next })
+                              }} 
+                            />
+                            <input 
+                              className="outline-none border rounded px-2 py-1" 
+                              placeholder="Job Title" 
+                              value={exp.title}
+                              onChange={(e)=>{
+                                const next = [...enhancedData.experienceEntries]
+                                next[idx] = { ...exp, title: e.target.value }
+                                setEnhancedData({ ...enhancedData, experienceEntries: next })
+                              }} 
+                            />
+                            <input 
+                              className="outline-none border rounded px-2 py-1" 
+                              placeholder="Period (e.g., Jan 2024 – Present)" 
+                              value={exp.period}
+                              onChange={(e)=>{
+                                const next = [...enhancedData.experienceEntries]
+                                next[idx] = { ...exp, period: e.target.value }
+                                setEnhancedData({ ...enhancedData, experienceEntries: next })
+                              }} 
+                            />
+                            <input 
+                              className="outline-none border rounded px-2 py-1" 
+                              placeholder="Location" 
+                              value={exp.location}
+                              onChange={(e)=>{
+                                const next = [...enhancedData.experienceEntries]
+                                next[idx] = { ...exp, location: e.target.value }
+                                setEnhancedData({ ...enhancedData, experienceEntries: next })
+                              }} 
+                            />
+                          </div>
+                          <div>
+                            <div className="text-xs mb-1" style={{ color: accentColor }}>Bullets</div>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {(exp.bullets||[]).map((b:string, bi:number)=>(
+                                <li key={bi}>
+                                  <input 
+                                    className="w-full outline-none" 
+                                    value={b} 
+                                    onChange={(e)=>{
+                                      const next = [...enhancedData.experienceEntries]
+                                      const xb = [...(exp.bullets||[])]
+                                      xb[bi] = e.target.value
+                                      next[idx] = { ...exp, bullets: xb }
+                                      setEnhancedData({ ...enhancedData, experienceEntries: next })
+                                    }} 
+                                  />
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="flex gap-2 mt-2">
+                              <Button 
+                                size="sm" 
+                                variant="secondary" 
+                                onClick={()=>{
+                                  const next = [...enhancedData.experienceEntries]
+                                  next[idx] = { ...exp, bullets: [...(exp.bullets||[]), ""] }
+                                  setEnhancedData({ ...enhancedData, experienceEntries: next })
+                                }}
+                              >
+                                Add Bullet
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="destructive" 
+                                onClick={()=>{
+                                  const next = enhancedData.experienceEntries.filter((_:any,i:number)=>i!==idx)
+                                  setEnhancedData({ ...enhancedData, experienceEntries: next })
+                                }}
+                              >
+                                Remove Experience
+                              </Button>
+                            </div>
+                          </div>
+                          {(exp.company || exp.title) && (
+                            <div className="mt-4 p-3 bg-gray-50 rounded border" style={{ borderColor: accentColor }}>
+                              <div className="flex flex-col space-y-1">
+                                {exp.company && (
+                                  <div className="font-bold text-lg" style={{ color: accentColor }}>
+                                    {exp.company}
+                                  </div>
+                                )}
+                                {exp.title && (
+                                  <div className="font-semibold text-base text-gray-800">
+                                    {exp.title}
+                                  </div>
+                                )}
+                                {(exp.period || exp.location) && (
+                                  <div className="text-sm text-gray-600">
+                                    {[exp.period, exp.location].filter(Boolean).join(' • ')}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {!hiddenSections['skills'] && (
                   <div>
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-xs tracking-wider px-3 py-1 border" style={{ borderColor: accentColor, color: accentColor }}>{enhancedData?.sectionTitles?.skills || 'SKILLS'}</div>
-                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('skills')}>Hide</Button>
+                      <div 
+                        className="font-semibold text-xs tracking-wider px-3 py-1 border" 
+                        style={{ borderColor: accentColor, color: accentColor }}
+                      >
+                        {enhancedData?.sectionTitles?.skills || 'SKILLS'}
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('skills')}>
+                        Hide
+                      </Button>
                     </div>
-                    <div className="bg-gray-50 border-b border-l border-r rounded-b p-3" style={{ borderColor: accentColor }}>
+                    <div 
+                      className="bg-gray-50 border-b border-l border-r rounded-b p-3" 
+                      style={{ borderColor: accentColor }}
+                    >
                       <ul className="list-disc pl-5 space-y-1">
                         {toArray(enhancedData?.skills).map((skill: string, idx: number) => (
                           <li key={idx}>
@@ -998,14 +1107,23 @@ export default function EnhanceCVPage() {
                   </div>
                 )}
 
-                {/* LANGUAGES */}
                 {!hiddenSections['languages'] && (
                   <div>
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-xs tracking-wider px-3 py-1 border" style={{ borderColor: accentColor, color: accentColor }}>{enhancedData?.sectionTitles?.languages || 'LANGUAGES'}</div>
-                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('languages')}>Hide</Button>
+                      <div 
+                        className="font-semibold text-xs tracking-wider px-3 py-1 border" 
+                        style={{ borderColor: accentColor, color: accentColor }}
+                      >
+                        {enhancedData?.sectionTitles?.languages || 'LANGUAGES'}
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('languages')}>
+                        Hide
+                      </Button>
                     </div>
-                    <div className="bg-gray-50 border-b border-l border-r rounded-b p-3" style={{ borderColor: accentColor }}>
+                    <div 
+                      className="bg-gray-50 border-b border-l border-r rounded-b p-3" 
+                      style={{ borderColor: accentColor }}
+                    >
                       <ul className="list-disc pl-5 space-y-1">
                         {toArray(enhancedData?.languages).map((lang: string, idx: number) => (
                           <li key={idx}>
@@ -1038,57 +1156,79 @@ export default function EnhanceCVPage() {
                   </div>
                 )}
 
-                {/* EDUCATION */}
                 {!hiddenSections['education'] && (
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-xs tracking-wider px-3 py-1 border" style={{ borderColor: accentColor, color: accentColor }}>{enhancedData?.sectionTitles?.education || 'EDUCATION'}</div>
-                    <Button size="sm" variant="ghost" onClick={()=>toggleSection('education')}>Hide</Button>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div 
+                        className="font-semibold text-xs tracking-wider px-3 py-1 border" 
+                        style={{ borderColor: accentColor, color: accentColor }}
+                      >
+                        {enhancedData?.sectionTitles?.education || 'EDUCATION'}
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('education')}>
+                        Hide
+                      </Button>
+                    </div>
+                    <ul 
+                      className="list-disc pl-5 mt-2 space-y-1 border-b border-l border-r rounded-b p-3 bg-white" 
+                      style={{ borderColor: accentColor }}
+                    >
+                      {toArray(lastAnalysis?.education).map((eItem: string, idx: number) => (
+                        <li key={idx}>
+                          <input 
+                            className="w-full outline-none" 
+                            value={eItem}
+                            onChange={(e)=>{
+                              const arr = toArray(lastAnalysis?.education)
+                              arr[idx] = e.target.value
+                              setLastAnalysis({ ...lastAnalysis, education: arr })
+                            }}
+                          />
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="list-disc pl-5 mt-2 space-y-1 border-b border-l border-r rounded-b p-3 bg-white" style={{ borderColor: accentColor }}>
-                    {toArray(lastAnalysis?.education).map((eItem: string, idx: number) => (
-                      <li key={idx}>
-                        <input className="w-full outline-none" value={eItem}
-                          onChange={(e)=>{
-                            const arr = toArray(lastAnalysis?.education)
-                            arr[idx] = e.target.value
-                            setLastAnalysis({ ...lastAnalysis, education: arr })
-                          }}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
                 )}
 
-                {/* TRAINING / CERTIFICATIONS */}
                 {!hiddenSections['training'] && (
-                <div>
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-xs tracking-wider px-3 py-1 border" style={{ borderColor: accentColor, color: accentColor }}>{enhancedData?.sectionTitles?.training || 'CORPORATE TRAINING / CERTIFICATIONS'}</div>
-                    <Button size="sm" variant="ghost" onClick={()=>toggleSection('training')}>Hide</Button>
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div 
+                        className="font-semibold text-xs tracking-wider px-3 py-1 border" 
+                        style={{ borderColor: accentColor, color: accentColor }}
+                      >
+                        {enhancedData?.sectionTitles?.training || 'CORPORATE TRAINING / CERTIFICATIONS'}
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={()=>toggleSection('training')}>
+                        Hide
+                      </Button>
+                    </div>
+                    <ul 
+                      className="list-disc pl-5 mt-2 space-y-1 border-b border-l border-r rounded-b p-3 bg-white" 
+                      style={{ borderColor: accentColor }}
+                    >
+                      {toArray(lastAnalysis?.training || lastAnalysis?.certifications).map((tItem: string, idx: number) => (
+                        <li key={idx}>
+                          <input 
+                            className="w-full outline-none" 
+                            value={tItem}
+                            onChange={(e)=>{
+                              const arr = toArray(lastAnalysis?.training || lastAnalysis?.certifications)
+                              arr[idx] = e.target.value
+                              setLastAnalysis({ ...lastAnalysis, training: arr })
+                            }}
+                          />
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="list-disc pl-5 mt-2 space-y-1 border-b border-l border-r rounded-b p-3 bg-white" style={{ borderColor: accentColor }}>
-                    {toArray(lastAnalysis?.training || lastAnalysis?.certifications).map((tItem: string, idx: number) => (
-                      <li key={idx}>
-                        <input className="w-full outline-none" value={tItem}
-                          onChange={(e)=>{
-                            const arr = toArray(lastAnalysis?.training || lastAnalysis?.certifications)
-                            arr[idx] = e.target.value
-                            setLastAnalysis({ ...lastAnalysis, training: arr })
-                          }}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
                 )}
 
-                {/* CUSTOM SECTIONS */}
                 {customSections.map((sec, sidx) => (
                   <div key={sidx}>
                     <div className="flex items-center gap-2">
-                      <input className="font-semibold text-xs tracking-wider px-3 py-1 border outline-none"
+                      <input 
+                        className="font-semibold text-xs tracking-wider px-3 py-1 border outline-none"
                         style={{ borderColor: accentColor, color: accentColor }}
                         value={sec.title}
                         placeholder="SECTION TITLE"
@@ -1098,11 +1238,18 @@ export default function EnhanceCVPage() {
                           setCustomSections(next)
                         }}
                       />
-                      <Button variant="outline" size="sm" onClick={()=>{
-                        setCustomSections(prev => prev.filter((_,i)=>i!==sidx))
-                      }}>Remove</Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={()=>{
+                          setCustomSections(prev => prev.filter((_,i)=>i!==sidx))
+                        }}
+                      >
+                        Remove
+                      </Button>
                     </div>
-                    <textarea className="w-full outline-none bg-gray-50 rounded-b p-2 text-sm border-b border-l border-r mt-1" rows={6}
+                    <textarea 
+                      className="w-full outline-none bg-gray-50 rounded-b p-2 text-sm border-b border-l border-r mt-1"
                       style={{ borderColor: accentColor }}
                       value={(sec.items||[]).join('\n')}
                       onChange={(e)=>{
@@ -1110,22 +1257,45 @@ export default function EnhanceCVPage() {
                         next[sidx] = { ...sec, items: e.target.value.split('\n').filter(Boolean) }
                         setCustomSections(next)
                       }}
+                      rows={3}
                     />
                   </div>
                 ))}
               </div>
 
               <div className="flex gap-4 mt-4">
-                <Button onClick={handleDownload} className="flex-1 bg-accent hover:bg-accent/90">
+                <Button 
+                  onClick={handleDownload} 
+                  className="flex-1 bg-accent hover:bg-accent/90"
+                >
+                  <Download className="mr-2 h-4 w-4" />
                   Download Enhanced CV
                 </Button>
-                <Button onClick={() => setCustomSections(prev => [...prev, {title: 'CUSTOM SECTION', items: []}])} variant="secondary">
+                <Button 
+                  onClick={() => setCustomSections(prev => [...prev, {title: 'CUSTOM SECTION', items: []}])} 
+                  variant="secondary"
+                >
                   Add Section
                 </Button>
-                <Button onClick={handleDownloadPdf} variant="outline" disabled={downloadingPdf}>
-                  {downloadingPdf ? 'Generating...' : 'Download PDF'}
+                <Button 
+                  onClick={handleDownloadPdf} 
+                  variant="outline" 
+                  disabled={downloadingPdf}
+                >
+                  {downloadingPdf ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    'Download PDF'
+                  )}
                 </Button>
-                <Button onClick={() => router.push("/dashboard")} variant="outline" className="flex-1">
+                <Button 
+                  onClick={() => router.push("/dashboard")} 
+                  variant="outline" 
+                  className="flex-1"
+                >
                   Back to Dashboard
                 </Button>
               </div>
