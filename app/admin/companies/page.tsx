@@ -1,4 +1,3 @@
-
 // ===================== handel companies cruds validation unique name and website ========================
 "use client";
 
@@ -89,7 +88,10 @@ export default function CompaniesPage() {
         c[field].toLowerCase() === value.toLowerCase() &&
         (formType === "add" || c.id !== selectedCompany?.id)
     );
-    setErrors((prev) => ({ ...prev, [field]: exists ? `${field} already exists` : "" }));
+    setErrors((prev) => ({
+      ...prev,
+      [field]: exists ? `${field} already exists` : "",
+    }));
     return exists;
   };
 
@@ -120,7 +122,10 @@ export default function CompaniesPage() {
         ]);
         toast({ title: "Success", description: "Company added successfully" });
       } else if (formType === "edit" && selectedCompany) {
-        const res = await authService.updateCompany(selectedCompany.id, payload);
+        const res = await authService.updateCompany(
+          selectedCompany.id,
+          payload
+        );
         const updatedCompany = res.company ?? res;
         setCompanies((prev) =>
           prev.map((c) =>
@@ -290,4 +295,3 @@ export default function CompaniesPage() {
     </div>
   );
 }
-
