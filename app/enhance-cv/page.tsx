@@ -1292,11 +1292,11 @@ export default function EnhanceCVPage() {
                   )}
                 </Button>
                 <Button 
-                  onClick={() => router.push("/dashboard")} 
+                  onClick={() => router.push("/cv-analysis-pro")} 
                   variant="outline" 
                   className="flex-1"
                 >
-                  Back to Dashboard
+                  Back to Cv Analysis
                 </Button>
               </div>
             </div>
